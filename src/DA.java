@@ -6,8 +6,14 @@ public class DA extends Agent {
 	protected void setup() {
 		addBehaviour(new TickerBehaviour(this, 3000) {
 			protected void onTick() {
-				System.out.println("This is DIPRE Agent! My name is " + getLocalName() + ".");
+				System.out.println("This is DIPRE Agent! My name is "
+						+ getLocalName() + ".");
 			}
 		});
+	}
+
+	protected void takeDown() {
+		// Printout a dismissal message
+		System.out.println("Agent " + getAID().getName() + " terminating.");
 	}
 }
