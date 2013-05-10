@@ -1,15 +1,20 @@
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.SearchConstraints;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+import jade.lang.acl.UnreadableException;
 
 import java.util.ArrayList;
 
 public class DA extends Agent {
 	private static final long serialVersionUID = 1L;
+
 	private ArrayList<String> relations = new ArrayList<String>();
 	private AID searchAgent = new AID();
 
@@ -21,8 +26,8 @@ public class DA extends Agent {
 				relations.add(o.toString());
 			}
 		}
-		System.out.println("DIPRE Agent " + getLocalName() + " is ready.");
-		System.out.println("Relations of agent " + getLocalName() + ":");
+		System.out.println("DIPRE Agent " + getLocalName()
+				+ " is ready with relations:");
 		for (String s : relations) {
 			System.out.println(s);
 		}
@@ -56,18 +61,78 @@ public class DA extends Agent {
 		System.out.println(getLocalName() + " found "
 				+ searchAgent.getLocalName() + " Search Agent.");
 
-		addBehaviour(new TickerBehaviour(this, 4000) {
+		addBehaviour(new CommunicationBehaviour());
+
+		addBehaviour(new TickerBehaviour(this, 10000) {
 			private static final long serialVersionUID = 1L;
 
 			protected void onTick() {
-				System.out.println("This is DIPRE Agent! My name is "
-						+ getLocalName() + ".");
+				System.out.println(getLocalName() + " still alive.");
 			}
 		});
 	}
 
 	protected void takeDown() {
 		// Printout a dismissal message
-		System.out.println("Agent " + getAID().getName() + " terminating.");
+		System.out.println("DIPRE Agent " + getAID().getName()
+				+ " terminating.");
 	}
+
+	/**
+	 * Inner class CommunicationBehaviour. This is the behaviour used by SA to
+	 * serve incoming requests from DA's.
+	 */
+	private class CommunicationBehaviour extends CyclicBehaviour {
+		private static final long serialVersionUID = 1L;
+
+		private int step = 0;
+
+		public void action() {
+			switch (step) {
+			case 0:
+				// Send the keywords to Search Agent
+				ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+				request.addReceiver(searchAgent);
+				request.setContent(nextRequest());
+				myAgent.send(request);
+				step = 1;
+				break;
+			case 1:
+				// Receive results from Search Agent
+				MessageTemplate mt = MessageTemplate
+						.MatchPerformative(ACLMessage.INFORM);
+				ACLMessage msg = myAgent.receive(mt);
+				if (msg != null) {
+					// INFORM message received. Process it
+					try {
+						@SuppressWarnings("unchecked")
+						ArrayList<String> links = (ArrayList<String>) msg
+								.getContentObject();
+						processLinks(links);
+					} catch (UnreadableException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					step = 0;
+				} else {
+					block();
+				}
+				break;
+			}
+		}
+	} // End of inner class CommunicationBehaviour
+
+	protected String nextRequest() {
+		// TODO: implement choosing next relation to query Search Agent
+		return "relation";
+	}
+
+	protected void processLinks(ArrayList<String> links) {
+		// TODO: implement link processing
+		System.out.println(getLocalName() + " received links:");
+		for (String l : links) {
+			System.out.println(l);
+		}
+	}
+
 }
