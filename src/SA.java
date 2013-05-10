@@ -5,22 +5,32 @@ import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 
-@SuppressWarnings("serial")
 public class SA extends Agent {
+	private static final long serialVersionUID = 1L;
+
 	protected void setup() {
 		// Register the search-web service in the yellow pages
 		DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
-		sd.setType("search-web");
-		sd.setName("DIPRE-web-searching");
+		sd.setType("SA");
+		sd.setName("SA");
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
 		} catch (FIPAException fe) {
-			fe.printStackTrace();
+			System.err.println(getLocalName()
+					+ " registration with DF unsucceeded. Reason: "
+					+ fe.getMessage());
+			doDelete();
 		}
-		addBehaviour(new TickerBehaviour(this, 3000) {
+		// End registration with the DF
+		System.out.println(getLocalName()
+				+ " succeeded in registration with DF");
+
+		addBehaviour(new TickerBehaviour(this, 4000) {
+			private static final long serialVersionUID = 1L;
+
 			protected void onTick() {
 				System.out.println("This is Search Agent! My name is "
 						+ getLocalName() + ".");
@@ -33,7 +43,9 @@ public class SA extends Agent {
 		try {
 			DFService.deregister(this);
 		} catch (FIPAException fe) {
-			fe.printStackTrace();
+			System.err.println(getLocalName()
+					+ " deregistration with DF unsucceeded. Reason: "
+					+ fe.getMessage());
 		}
 		// Printout a dismissal message
 		System.out.println("Agent " + getAID().getName() + " terminating.");
