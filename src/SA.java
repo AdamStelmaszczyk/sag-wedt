@@ -1,9 +1,5 @@
-import java.io.IOException;
-import java.util.ArrayList;
-
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -11,6 +7,9 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.wrapper.ControllerException;
+
+import java.io.IOException;
+import java.util.ArrayList;
 
 public abstract class SA extends Agent {
 	private static final long serialVersionUID = 1L;
@@ -44,14 +43,6 @@ public abstract class SA extends Agent {
 				+ " succeeded in registration with DF.");
 
 		addBehaviour(new ServeRequestsBehaviour());
-
-		addBehaviour(new TickerBehaviour(this, 10000) {
-			private static final long serialVersionUID = 1L;
-
-			protected void onTick() {
-				System.out.println(getLocalName() + " still alive.");
-			}
-		});
 	}
 
 	protected void takeDown() {

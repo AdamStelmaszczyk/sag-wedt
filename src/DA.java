@@ -1,13 +1,11 @@
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.SearchConstraints;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
 import jade.lang.acl.UnreadableException;
 import jade.wrapper.ControllerException;
 
@@ -69,15 +67,7 @@ public class DA extends Agent {
 		System.out.println(getLocalName() + " found "
 				+ searchAgent.getLocalName() + " Search Agent.");
 
-		addBehaviour(new CommunicationBehaviour());
-
-		addBehaviour(new TickerBehaviour(this, 10000) {
-			private static final long serialVersionUID = 1L;
-
-			protected void onTick() {
-				System.out.println(getLocalName() + " still alive.");
-			}
-		});
+		addBehaviour(new CommunicationBehaviour(this));
 	}
 
 	protected void takeDown() {
@@ -93,7 +83,13 @@ public class DA extends Agent {
 	private class CommunicationBehaviour extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
+		private DA myAgent;
+
 		private int step = 0;
+
+		public CommunicationBehaviour(DA agent) {
+			myAgent = agent;
+		}
 
 		public void action() {
 			switch (step) {
@@ -106,22 +102,54 @@ public class DA extends Agent {
 				step = 1;
 				break;
 			case 1:
-				// Receive results from Search Agent
-				MessageTemplate mt = MessageTemplate
-						.MatchPerformative(ACLMessage.INFORM);
-				ACLMessage msg = myAgent.receive(mt);
+				// Receive messages
+				ACLMessage msg = myAgent.receive();
 				if (msg != null) {
-					// INFORM message received. Process it
-					try {
-						@SuppressWarnings("unchecked")
-						ArrayList<String> links = (ArrayList<String>) msg
-								.getContentObject();
-						processLinks(links);
-					} catch (UnreadableException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+					if (msg.getPerformative() == ACLMessage.INFORM) {
+						// INFORM message received. Process it.
+						try {
+							@SuppressWarnings("unchecked")
+							ArrayList<String> links = (ArrayList<String>) msg
+									.getContentObject();
+							processLinks(links);
+							step = 0;
+						} catch (UnreadableException e) {
+							System.err.println(getLocalName()
+									+ " cannot read INFORM message from "
+									+ msg.getSender().getLocalName()
+									+ ". Reason: " + e.getMessage());
+							step = 0;
+						}
+					} else if (msg.getPerformative() == ACLMessage.REQUEST) {
+						// REQUEST message received. Send reply.
+						System.out.println("DIPRE Agent " + getLocalName()
+								+ " received REQUEST message.");
+						ACLMessage reply = msg.createReply();
+						reply.setPerformative(ACLMessage.INFORM);
+						// TODO: send all relations possibly in many messages
+						StringBuilder sb = new StringBuilder();
+						for (String s : myAgent.relations) {
+							sb.append(s);
+							sb.append("\n");
+						}
+						reply.setContent(sb.toString());
+						send(reply);
+					} else {
+						// Unexpected message received. Send reply.
+						System.err.println("Agent "
+								+ getLocalName()
+								+ " - Unexpected message ["
+								+ ACLMessage.getPerformative(msg
+										.getPerformative())
+								+ "] received from "
+								+ msg.getSender().getLocalName());
+						ACLMessage reply = msg.createReply();
+						reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
+						reply.setContent("Unexpected-act "
+								+ ACLMessage.getPerformative(msg
+										.getPerformative()));
+						send(reply);
 					}
-					step = 0;
 				} else {
 					block();
 				}
