@@ -9,6 +9,7 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.lang.acl.UnreadableException;
+import jade.wrapper.ControllerException;
 
 import java.util.ArrayList;
 
@@ -36,6 +37,13 @@ public class DA extends Agent {
 		DFAgentDescription dfd = new DFAgentDescription();
 		ServiceDescription sd = new ServiceDescription();
 		sd.setType("SA");
+		try {
+			sd.setName(getContainerController().getContainerName());
+		} catch (ControllerException e) {
+			System.err.println(getLocalName()
+					+ " cannot get container name. Reason: " + e.getMessage());
+			doDelete();
+		}
 		dfd.addServices(sd);
 		try {
 			while (true) {
@@ -124,7 +132,10 @@ public class DA extends Agent {
 
 	protected String nextRequest() {
 		// TODO: implement choosing next relation to query Search Agent
-		return "relation";
+		if (relations.isEmpty())
+			return "relation";
+		else
+			return relations.get(0);
 	}
 
 	protected void processLinks(ArrayList<String> links) {

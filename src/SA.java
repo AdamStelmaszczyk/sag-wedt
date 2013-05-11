@@ -10,6 +10,7 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.wrapper.ControllerException;
 
 public abstract class SA extends Agent {
 	private static final long serialVersionUID = 1L;
@@ -22,7 +23,13 @@ public abstract class SA extends Agent {
 		dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
 		sd.setType("SA");
-		sd.setName("SA");
+		try {
+			sd.setName(getContainerController().getContainerName());
+		} catch (ControllerException e) {
+			System.err.println(getLocalName()
+					+ " cannot get container name. Reason: " + e.getMessage());
+			doDelete();
+		}
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
