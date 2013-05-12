@@ -1,4 +1,5 @@
 package dipre;
+
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
@@ -17,43 +18,47 @@ import search.SA;
 
 import common.Links;
 
-
 /**
  * DIPRE Agent.
+ */
+/**
+ * @author przemek
+ * 
  */
 public class DA extends Agent {
 
 	private class Relation {
 		public String first;
 		public String second;
-		public Relation(String f, String s){
-			first=f;
-			second=s;
+
+		public Relation(String f, String s) {
+			first = f;
+			second = s;
 		}
+
 		@Override
 		public String toString() {
-			return first+" "+second;
+			return first + " " + second;
 		}
 	}
 
-	private final int SLEEP_MS = 10000;
+	private final int SLEEP_MS = 1000;
 	private final List<Relation> relations = new ArrayList<Relation>();
 	private AID searchAgent = new AID();
 	private static final long serialVersionUID = 1L;
+	private boolean fooTest = true; // Uzyte w zaslepce getNewRelation
 
 	@Override
 	protected void setup() {
 		// Get the relations as a start-up argument
 		final Object[] args = getArguments();
-		if (args != null && args.length==2) {
-				relations.add(new Relation(args[0].toString(), args[1].toString()));
-			
+		if (args != null && args.length == 2) {
+			relations.add(new Relation(args[0].toString(), args[1].toString()));
+
 		}
-		System.out.printf("DIPRE Agent %s is ready with relations:\n",	
+		System.out.printf("DIPRE Agent %s is ready with relations:\n",
 				getLocalName());
-		
-		
-		
+
 		for (final Relation s : relations) {
 			System.out.println(s);
 		}
@@ -116,6 +121,12 @@ public class DA extends Agent {
 
 		@Override
 		public void action() {
+			// DEBUG only START
+			try {
+				Thread.sleep(SLEEP_MS);
+			} catch (InterruptedException e) {
+			}
+			// DEBUG only END
 			switch (step) {
 			case 0:
 				requestLinksPortion();
@@ -143,7 +154,7 @@ public class DA extends Agent {
 			final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 			request.addReceiver(searchAgent);
 			String relation = nextRequest();
-			if(relation!=null){
+			if (relation != null) {
 				request.setContent(relation);
 				send(request);
 			}
@@ -154,13 +165,13 @@ public class DA extends Agent {
 			// INFORM message received. Process it.
 			try {
 				final Links links = (Links) msg.getContentObject();
-				processLinks(links);
+				processLinks(links); // TODO to chyba do smieci
+				dipre(links);
 			} catch (final UnreadableException e) {
 				System.err
 						.printf(getLocalName()
 								+ "%s cannot read INFORM message from %s. Reason: %s\n",
-								msg.getSender().getLocalName(),
-								e.getMessage());
+								msg.getSender().getLocalName(), e.getMessage());
 			} finally {
 				step = 0;
 			}
@@ -170,10 +181,9 @@ public class DA extends Agent {
 			// Unexpected message received. Send reply.
 			final String msgText = ACLMessage.getPerformative(msg
 					.getPerformative());
-			System.err
-					.printf("Agent %s - Unexpected message [%s] received from %s\n",
-							getLocalName(), msgText, msg
-									.getSender().getLocalName());
+			System.err.printf(
+					"Agent %s - Unexpected message [%s] received from %s\n",
+					getLocalName(), msgText, msg.getSender().getLocalName());
 			final ACLMessage reply = msg.createReply();
 			reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
 			reply.setContent("Unexpected-act " + msgText);
@@ -182,8 +192,7 @@ public class DA extends Agent {
 
 		private void handleRelationsRequest(final ACLMessage msg) {
 			// REQUEST message received. Send reply.
-			System.out.printf(
-					"DIPRE Agent %s received REQUEST message\n",
+			System.out.printf("DIPRE Agent %s received REQUEST message\n",
 					getLocalName());
 			final ACLMessage reply = msg.createReply();
 			reply.setPerformative(ACLMessage.INFORM);
@@ -194,7 +203,7 @@ public class DA extends Agent {
 				sb.append(s);
 				sb.append("\n");
 			}
-			
+
 			reply.setContent(sb.toString());
 			send(reply);
 		}
@@ -205,13 +214,64 @@ public class DA extends Agent {
 		if (relations.isEmpty()) {
 			return null;
 		} else {
-			return relations.remove(0).toString();
+			return relations.get(0).toString();
 		}
 	}
 
 	protected void processLinks(Links links) {
 		// TODO: implement link processing
 		System.out.printf("%s received links: %s\n", getLocalName(), links);
+	}
+
+	/**
+	 * Method to perform DIPRE algorithm on web pages given in links
+	 */
+	protected void dipre(Links links) {
+		Relation relation = relations.remove(0);
+		for (String link : links) {
+			String rule = getRule(link, relation);
+			// TODO magic number:)
+			Links innerLinks = getInnerLinks(link, 2);
+			for (String innerLink : innerLinks) {
+				Relation newRelation = getNewRelation(innerLink, rule);
+				if (newRelation != null) {
+					relations.add(newRelation);
+					System.out.println("Crawler get new relation: "
+							+ newRelation.toString());
+				}
+			}
+		}
+
+	}
+
+	/**
+	 * @param page
+	 *            link to page, it starts searching
+	 * @param deepthLevel
+	 *            max level of deepth
+	 * @return Links to pages from the same domain found by DFS with max level
+	 */
+	protected Links getInnerLinks(String link, int deepthLevel) {
+		// TODO zaslepka metody
+		final Links links = new Links();
+		links.add("http://www.microsoft.com/page_id/13");
+		links.add("http://msdn.microsoft.com/page_id/14");
+		links.add("http://msdn.microsoft.com/page_id/15");
+		return links;
+	}
+
+	protected String getRule(String link, Relation relation) {
+		// TODO zaslepka metody
+		return relation.first + "’s first book " + relation.second;
+	}
+
+	protected Relation getNewRelation(String link, String rule) {
+		// TODO zaslepka metody
+		if (fooTest) {
+			fooTest = false;
+			return new Relation("Tolkien", "LOTR");
+		}
+		return null;
 	}
 
 }
