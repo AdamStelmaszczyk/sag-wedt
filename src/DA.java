@@ -10,6 +10,11 @@ import jade.lang.acl.UnreadableException;
 import jade.wrapper.ControllerException;
 
 import java.util.ArrayList;
+import java.util.List;
+
+import search.SA;
+
+import common.Links;
 
 import search.SA;
 
@@ -20,8 +25,21 @@ import common.Links;
  */
 public class DA extends Agent {
 
+	private class Relation {
+		public String first;
+		public String second;
+		public Relation(String f, String s){
+			first=f;
+			second=s;
+		}
+		@Override
+		public String toString() {
+			return first+" "+second;
+		}
+	}
+
 	private final int SLEEP_MS = 10000;
-	private final ArrayList<String> relations = new ArrayList<String>();
+	private final List<Relation> relations = new ArrayList<Relation>();
 	private AID searchAgent = new AID();
 	private static final long serialVersionUID = 1L;
 
@@ -29,14 +47,16 @@ public class DA extends Agent {
 	protected void setup() {
 		// Get the relations as a start-up argument
 		final Object[] args = getArguments();
-		if (args != null) {
-			for (final Object o : args) {
-				relations.add(o.toString());
-			}
+		if (args != null && args.length==2) {
+				relations.add(new Relation(args[0].toString(), args[1].toString()));
+			
 		}
-		System.out.printf("DIPRE Agent %s is ready with relations:\n",
+		System.out.printf("DIPRE Agent %s is ready with relations:\n",	
 				getLocalName());
-		for (final String s : relations) {
+		
+		
+		
+		for (final Relation s : relations) {
 			System.out.println(s);
 		}
 
@@ -75,7 +95,7 @@ public class DA extends Agent {
 					getLocalName(), fe.getMessage());
 			doDelete();
 		}
-		System.out.printf("%s found %s Search Agent", getLocalName(),
+		System.out.printf("%s found %s Search Agent\n", getLocalName(),
 				searchAgent.getLocalName());
 
 		addBehaviour(new CommunicationBehaviour());
@@ -124,8 +144,11 @@ public class DA extends Agent {
 			// Send the keywords to Search Agent
 			final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 			request.addReceiver(searchAgent);
-			request.setContent(nextRequest());
-			send(request);
+			String relation = nextRequest();
+			if(relation!=null){
+				request.setContent(relation);
+				send(request);
+			}
 			step = 1;
 		}
 
@@ -134,13 +157,13 @@ public class DA extends Agent {
 			try {
 				final Links links = (Links) msg.getContentObject();
 				processLinks(links);
-				step = 0;
 			} catch (final UnreadableException e) {
 				System.err
 						.printf(getLocalName()
 								+ "%s cannot read INFORM message from %s. Reason: %s\n",
 								msg.getSender().getLocalName(),
 								e.getMessage());
+			} finally {
 				step = 0;
 			}
 		}
@@ -168,10 +191,12 @@ public class DA extends Agent {
 			reply.setPerformative(ACLMessage.INFORM);
 			// TODO: send all relations possibly in many messages
 			final StringBuilder sb = new StringBuilder();
-			for (final String s : relations) {
+			sb.append("Relations:");
+			for (final DA.Relation s : relations) {
 				sb.append(s);
 				sb.append("\n");
 			}
+			
 			reply.setContent(sb.toString());
 			send(reply);
 		}
@@ -180,9 +205,9 @@ public class DA extends Agent {
 	protected String nextRequest() {
 		// TODO: implement choosing next relation to query Search Agent
 		if (relations.isEmpty()) {
-			return "relation";
+			return null;
 		} else {
-			return relations.get(0);
+			return relations.remove(0).toString();
 		}
 	}
 
