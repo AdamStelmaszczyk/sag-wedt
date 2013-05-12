@@ -17,9 +17,6 @@ import search.SA;
 
 import common.Links;
 
-import search.SA;
-
-import common.Links;
 
 /**
  * DIPRE Agent.
