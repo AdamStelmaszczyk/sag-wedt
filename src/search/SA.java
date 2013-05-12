@@ -1,4 +1,5 @@
 package search;
+
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.domain.DFService;
@@ -20,6 +21,8 @@ public abstract class SA extends Agent {
 
 	public static final String AGENT_TYPE = "SA";
 	private static final long serialVersionUID = 1L;
+
+	protected abstract Links getLinks(String keywords) throws IOException;
 
 	@Override
 	protected void setup() {
@@ -99,7 +102,5 @@ public abstract class SA extends Agent {
 			}
 		}
 	} // End of inner class ServeRequestsBehaviour
-
-	protected abstract Links getLinks(String keywords) throws IOException;
 
 }

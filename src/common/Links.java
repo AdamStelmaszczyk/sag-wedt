@@ -2,12 +2,12 @@ package common;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 
 public class Links implements Serializable, Iterable<String> {
 
-	private final List<String> links = new ArrayList<String>();
+	private final Collection<String> links = new ArrayList<String>();
 	private static final long serialVersionUID = 1L;
 
 	public void add(String link) {
@@ -15,13 +15,12 @@ public class Links implements Serializable, Iterable<String> {
 	}
 
 	@Override
-	public String toString() {
-		return links.toString();
+	public Iterator<String> iterator() {
+		return links.iterator();
 	}
 
 	@Override
-	public Iterator<String> iterator() {
-		// TODO Auto-generated method stub
-		return links.iterator();
+	public String toString() {
+		return links.toString();
 	}
 }
