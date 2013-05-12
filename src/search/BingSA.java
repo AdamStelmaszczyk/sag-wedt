@@ -1,3 +1,7 @@
+package search;
+
+import common.Links;
+
 /**
  * Search Agent using Bing.
  */

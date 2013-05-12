@@ -1,7 +1,11 @@
+package search;
+
+import common.Links;
+
 /**
- * Search Agent using Entireweb.com.
+ * Search Agent using Faroo.com.
  */
-public class EntirewebSA extends SA {
+public class FarooSA extends SA {
 
 	private static final long serialVersionUID = 1L;
 

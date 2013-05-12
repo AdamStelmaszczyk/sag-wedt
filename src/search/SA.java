@@ -1,3 +1,4 @@
+package search;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.domain.DFService;
@@ -9,6 +10,8 @@ import jade.lang.acl.MessageTemplate;
 import jade.wrapper.ControllerException;
 
 import java.io.IOException;
+
+import common.Links;
 
 /**
  * Abstraction for Search Agent.
