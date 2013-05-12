@@ -88,8 +88,10 @@ public abstract class SA extends Agent {
 				try {
 					reply.setContentObject(find(keywords));
 				} catch (final IOException e) {
-					// TODO: it is auto-generated: we should do sth with this
-					// for example sending REFUSE message
+					// TODO: it is auto-generated so
+					// we should do sth with this
+					// for example sending REFUSE message instead of
+					// printStackTrace
 					e.printStackTrace();
 				}
 				myAgent.send(reply);

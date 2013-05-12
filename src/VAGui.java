@@ -14,7 +14,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 /*
- * View Agent Gui
+ * View Agent Gui.
  */
 class VAGui extends JFrame {
 	private static final long serialVersionUID = 1L;

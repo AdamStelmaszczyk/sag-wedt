@@ -6,7 +6,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
 /*
- * View Agent
+ * View Agent.
  */
 public class VA extends Agent {
 	private static final long serialVersionUID = 1L;

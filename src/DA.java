@@ -104,7 +104,7 @@ public class DA extends Agent {
 				break;
 			case 1:
 				// Receive messages
-				final ACLMessage msg = myAgent.receive();
+				final ACLMessage msg = DA.this.receive();
 				if (msg != null) {
 					if (msg.getPerformative() == ACLMessage.INFORM) {
 						// INFORM message received. Process it.
