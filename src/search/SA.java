@@ -37,6 +37,7 @@ public abstract class SA extends Agent {
 			System.err.printf("%s cannot get container name. Reason: %s\n",
 					getLocalName(), e.getMessage());
 			doDelete();
+			return;
 		}
 		dfd.addServices(sd);
 		try {
@@ -46,6 +47,7 @@ public abstract class SA extends Agent {
 					"%s registration with DF unsucceeded. Reason: %s\n",
 					getLocalName(), fe.getMessage());
 			doDelete();
+			return;
 		}
 		// End registration with the DF
 		System.out.printf(
