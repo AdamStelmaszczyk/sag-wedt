@@ -11,33 +11,37 @@ import jade.wrapper.ControllerException;
 
 import java.util.ArrayList;
 
+/**
+ * DIPRE Agent.
+ */
 public class DA extends Agent {
 	private static final long serialVersionUID = 1L;
 
-	private ArrayList<String> relations = new ArrayList<String>();
+	private final ArrayList<String> relations = new ArrayList<String>();
 	private AID searchAgent = new AID();
 
+	@Override
 	protected void setup() {
 		// Get the relations as a start-up argument
-		Object[] args = getArguments();
+		final Object[] args = getArguments();
 		if (args != null) {
-			for (Object o : args) {
+			for (final Object o : args) {
 				relations.add(o.toString());
 			}
 		}
 		System.out.println("DIPRE Agent " + getLocalName()
 				+ " is ready with relations:");
-		for (String s : relations) {
+		for (final String s : relations) {
 			System.out.println(s);
 		}
 
 		// Search with the DF for the name of the SA
 		DFAgentDescription dfd = new DFAgentDescription();
-		ServiceDescription sd = new ServiceDescription();
+		final ServiceDescription sd = new ServiceDescription();
 		sd.setType("SA");
 		try {
 			sd.setName(getContainerController().getContainerName());
-		} catch (ControllerException e) {
+		} catch (final ControllerException e) {
 			System.err.println(getLocalName()
 					+ " cannot get container name. Reason: " + e.getMessage());
 			doDelete();
@@ -47,9 +51,10 @@ public class DA extends Agent {
 			while (true) {
 				System.out.println(getLocalName()
 						+ " waiting for an SA registering with the DF");
-				SearchConstraints c = new SearchConstraints();
+				final SearchConstraints c = new SearchConstraints();
 				c.setMaxDepth(new Long(3));
-				DFAgentDescription[] result = DFService.search(this, dfd, c);
+				final DFAgentDescription[] result = DFService.search(this, dfd,
+						c);
 				if ((result != null) && (result.length > 0)) {
 					dfd = result[0];
 					searchAgent = dfd.getName();
@@ -57,7 +62,7 @@ public class DA extends Agent {
 				}
 				Thread.sleep(10000);
 			}
-		} catch (Exception fe) {
+		} catch (final Exception fe) {
 			fe.printStackTrace();
 			System.err.println(getLocalName()
 					+ " search with DF is not succeeded because of "
@@ -70,6 +75,7 @@ public class DA extends Agent {
 		addBehaviour(new CommunicationBehaviour(this));
 	}
 
+	@Override
 	protected void takeDown() {
 		// Printout a dismissal message
 		System.out.println("DIPRE Agent " + getAID().getName()
@@ -83,7 +89,7 @@ public class DA extends Agent {
 	private class CommunicationBehaviour extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
-		private DA myAgent;
+		private final DA myAgent;
 
 		private int step = 0;
 
@@ -91,11 +97,12 @@ public class DA extends Agent {
 			myAgent = agent;
 		}
 
+		@Override
 		public void action() {
 			switch (step) {
 			case 0:
 				// Send the keywords to Search Agent
-				ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+				final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 				request.addReceiver(searchAgent);
 				request.setContent(nextRequest());
 				myAgent.send(request);
@@ -103,17 +110,17 @@ public class DA extends Agent {
 				break;
 			case 1:
 				// Receive messages
-				ACLMessage msg = myAgent.receive();
+				final ACLMessage msg = myAgent.receive();
 				if (msg != null) {
 					if (msg.getPerformative() == ACLMessage.INFORM) {
 						// INFORM message received. Process it.
 						try {
 							@SuppressWarnings("unchecked")
-							ArrayList<String> links = (ArrayList<String>) msg
+							final ArrayList<String> links = (ArrayList<String>) msg
 									.getContentObject();
 							processLinks(links);
 							step = 0;
-						} catch (UnreadableException e) {
+						} catch (final UnreadableException e) {
 							System.err.println(getLocalName()
 									+ " cannot read INFORM message from "
 									+ msg.getSender().getLocalName()
@@ -124,11 +131,11 @@ public class DA extends Agent {
 						// REQUEST message received. Send reply.
 						System.out.println("DIPRE Agent " + getLocalName()
 								+ " received REQUEST message.");
-						ACLMessage reply = msg.createReply();
+						final ACLMessage reply = msg.createReply();
 						reply.setPerformative(ACLMessage.INFORM);
 						// TODO: send all relations possibly in many messages
-						StringBuilder sb = new StringBuilder();
-						for (String s : myAgent.relations) {
+						final StringBuilder sb = new StringBuilder();
+						for (final String s : myAgent.relations) {
 							sb.append(s);
 							sb.append("\n");
 						}
@@ -143,7 +150,7 @@ public class DA extends Agent {
 										.getPerformative())
 								+ "] received from "
 								+ msg.getSender().getLocalName());
-						ACLMessage reply = msg.createReply();
+						final ACLMessage reply = msg.createReply();
 						reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
 						reply.setContent("Unexpected-act "
 								+ ACLMessage.getPerformative(msg
@@ -160,16 +167,17 @@ public class DA extends Agent {
 
 	protected String nextRequest() {
 		// TODO: implement choosing next relation to query Search Agent
-		if (relations.isEmpty())
+		if (relations.isEmpty()) {
 			return "relation";
-		else
+		} else {
 			return relations.get(0);
+		}
 	}
 
 	protected void processLinks(ArrayList<String> links) {
 		// TODO: implement link processing
 		System.out.println(getLocalName() + " received links:");
-		for (String l : links) {
+		for (final String l : links) {
 			System.out.println(l);
 		}
 	}

@@ -1,5 +1,8 @@
 import java.util.ArrayList;
 
+/**
+ * Search Agent using Bing.
+ */
 public class BingSA extends SA {
 	private static final long serialVersionUID = 1L;
 
@@ -15,7 +18,7 @@ public class BingSA extends SA {
 
 	@Override
 	protected ArrayList<String> find(String keywords) {
-		ArrayList<String> links = new ArrayList<String>();
+		final ArrayList<String> links = new ArrayList<String>();
 		links.add("http://www.microsoft.com/");
 		links.add("http://msdn.microsoft.com/");
 		return links;

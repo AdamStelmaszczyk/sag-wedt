@@ -11,20 +11,24 @@ import jade.wrapper.ControllerException;
 import java.io.IOException;
 import java.util.ArrayList;
 
+/**
+ * Abstraction for Search Agent.
+ */
 public abstract class SA extends Agent {
 	private static final long serialVersionUID = 1L;
 
+	@Override
 	protected void setup() {
 		// Call abstract method
 		setupSA();
 		// Register the SA service in the yellow pages
-		DFAgentDescription dfd = new DFAgentDescription();
+		final DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());
-		ServiceDescription sd = new ServiceDescription();
+		final ServiceDescription sd = new ServiceDescription();
 		sd.setType("SA");
 		try {
 			sd.setName(getContainerController().getContainerName());
-		} catch (ControllerException e) {
+		} catch (final ControllerException e) {
 			System.err.println(getLocalName()
 					+ " cannot get container name. Reason: " + e.getMessage());
 			doDelete();
@@ -32,7 +36,7 @@ public abstract class SA extends Agent {
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
-		} catch (FIPAException fe) {
+		} catch (final FIPAException fe) {
 			System.err.println(getLocalName()
 					+ " registration with DF unsucceeded. Reason: "
 					+ fe.getMessage());
@@ -45,13 +49,14 @@ public abstract class SA extends Agent {
 		addBehaviour(new ServeRequestsBehaviour());
 	}
 
+	@Override
 	protected void takeDown() {
 		// Call abstract method
 		takeDownSA();
 		// Deregister from the yellow pages
 		try {
 			DFService.deregister(this);
-		} catch (FIPAException fe) {
+		} catch (final FIPAException fe) {
 			System.err.println(getLocalName()
 					+ " deregistration with DF unsucceeded. Reason: "
 					+ fe.getMessage());
@@ -68,23 +73,21 @@ public abstract class SA extends Agent {
 	private class ServeRequestsBehaviour extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
+		@Override
 		public void action() {
-			MessageTemplate mt = MessageTemplate
+			final MessageTemplate mt = MessageTemplate
 					.MatchPerformative(ACLMessage.REQUEST);
-			ACLMessage msg = myAgent.receive(mt);
+			final ACLMessage msg = myAgent.receive(mt);
 			if (msg != null) {
 				// REQUEST message received. Process it
-				System.out
-						.println(getLocalName()
-								+ " received REQUEST with content: "
-								+ msg.getContent());
-				String keywords = msg.getContent();
-				ACLMessage reply = msg.createReply();
+				final String keywords = msg.getContent();
+				System.out.printf("%s received REQUEST with content: %s",
+						getLocalName(), keywords);
+				final ACLMessage reply = msg.createReply();
 				reply.setPerformative(ACLMessage.INFORM);
 				try {
 					reply.setContentObject(find(keywords));
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
+				} catch (final IOException e) {
 					e.printStackTrace();
 				}
 				myAgent.send(reply);
