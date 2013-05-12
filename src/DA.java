@@ -15,10 +15,11 @@ import java.util.ArrayList;
  * DIPRE Agent.
  */
 public class DA extends Agent {
-	private static final long serialVersionUID = 1L;
 
+	private final int SLEEP_MS = 10000;
 	private final ArrayList<String> relations = new ArrayList<String>();
 	private AID searchAgent = new AID();
+	private static final long serialVersionUID = 1L;
 
 	@Override
 	protected void setup() {
@@ -29,8 +30,8 @@ public class DA extends Agent {
 				relations.add(o.toString());
 			}
 		}
-		System.out.println("DIPRE Agent " + getLocalName()
-				+ " is ready with relations:");
+		System.out.printf("DIPRE Agent %s is ready with relations:\n",
+				getLocalName());
 		for (final String s : relations) {
 			System.out.println(s);
 		}
@@ -38,21 +39,22 @@ public class DA extends Agent {
 		// Search with the DF for the name of the SA
 		DFAgentDescription dfd = new DFAgentDescription();
 		final ServiceDescription sd = new ServiceDescription();
-		sd.setType("SA");
+		sd.setType(SA.AGENT_TYPE);
 		try {
 			sd.setName(getContainerController().getContainerName());
 		} catch (final ControllerException e) {
-			System.err.println(getLocalName()
-					+ " cannot get container name. Reason: " + e.getMessage());
+			System.err.printf("%s cannot get container name. Reason: %s\n",
+					getLocalName(), e.getMessage());
 			doDelete();
 		}
 		dfd.addServices(sd);
 		try {
 			while (true) {
-				System.out.println(getLocalName()
-						+ " waiting for an SA registering with the DF");
+				System.out.printf(
+						"%s waiting for an SA registering with the DF\n",
+						getLocalName());
 				final SearchConstraints c = new SearchConstraints();
-				c.setMaxDepth(new Long(3));
+				c.setMaxDepth(3L);
 				final DFAgentDescription[] result = DFService.search(this, dfd,
 						c);
 				if ((result != null) && (result.length > 0)) {
@@ -60,17 +62,17 @@ public class DA extends Agent {
 					searchAgent = dfd.getName();
 					break;
 				}
-				Thread.sleep(10000);
+				Thread.sleep(SLEEP_MS);
 			}
 		} catch (final Exception fe) {
 			fe.printStackTrace();
-			System.err.println(getLocalName()
-					+ " search with DF is not succeeded because of "
-					+ fe.getMessage());
+			System.err.printf(
+					"%s search with DF is not succeeded because of %s\n",
+					getLocalName(), fe.getMessage());
 			doDelete();
 		}
-		System.out.println(getLocalName() + " found "
-				+ searchAgent.getLocalName() + " Search Agent.");
+		System.out.printf("%s found %s Search Agent", getLocalName(),
+				searchAgent.getLocalName());
 
 		addBehaviour(new CommunicationBehaviour());
 	}
@@ -78,8 +80,7 @@ public class DA extends Agent {
 	@Override
 	protected void takeDown() {
 		// Printout a dismissal message
-		System.out.println("DIPRE Agent " + getAID().getName()
-				+ " terminating.");
+		System.out.printf("DIPRE Agent %s terminating\n", getAID().getName());
 	}
 
 	/**
@@ -87,8 +88,8 @@ public class DA extends Agent {
 	 * serve incoming requests from DA's.
 	 */
 	private class CommunicationBehaviour extends CyclicBehaviour {
-		private static final long serialVersionUID = 1L;
 
+		private static final long serialVersionUID = 1L;
 		private int step = 0;
 
 		@Override
@@ -99,37 +100,37 @@ public class DA extends Agent {
 				final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 				request.addReceiver(searchAgent);
 				request.setContent(nextRequest());
-				DA.this.send(request);
+				send(request);
 				step = 1;
 				break;
 			case 1:
 				// Receive messages
-				final ACLMessage msg = DA.this.receive();
+				final ACLMessage msg = receive();
 				if (msg != null) {
 					if (msg.getPerformative() == ACLMessage.INFORM) {
 						// INFORM message received. Process it.
 						try {
-							@SuppressWarnings("unchecked")
-							final ArrayList<String> links = (ArrayList<String>) msg
-									.getContentObject();
+							final Links links = (Links) msg.getContentObject();
 							processLinks(links);
 							step = 0;
 						} catch (final UnreadableException e) {
-							System.err.println(getLocalName()
-									+ " cannot read INFORM message from "
-									+ msg.getSender().getLocalName()
-									+ ". Reason: " + e.getMessage());
+							System.err
+									.printf(getLocalName()
+											+ "%s cannot read INFORM message from %s. Reason: %s\n",
+											msg.getSender().getLocalName(),
+											e.getMessage());
 							step = 0;
 						}
 					} else if (msg.getPerformative() == ACLMessage.REQUEST) {
 						// REQUEST message received. Send reply.
-						System.out.println("DIPRE Agent " + getLocalName()
-								+ " received REQUEST message.");
+						System.out.printf(
+								"DIPRE Agent %s received REQUEST message\n",
+								getLocalName());
 						final ACLMessage reply = msg.createReply();
 						reply.setPerformative(ACLMessage.INFORM);
 						// TODO: send all relations possibly in many messages
 						final StringBuilder sb = new StringBuilder();
-						for (final String s : DA.this.relations) {
+						for (final String s : relations) {
 							sb.append(s);
 							sb.append("\n");
 						}
@@ -137,18 +138,15 @@ public class DA extends Agent {
 						send(reply);
 					} else {
 						// Unexpected message received. Send reply.
-						System.err.println("Agent "
-								+ getLocalName()
-								+ " - Unexpected message ["
-								+ ACLMessage.getPerformative(msg
-										.getPerformative())
-								+ "] received from "
-								+ msg.getSender().getLocalName());
+						final String msgText = ACLMessage.getPerformative(msg
+								.getPerformative());
+						System.err
+								.printf("Agent %s - Unexpected message [%s] received from %s\n",
+										getLocalName(), msgText, msg
+												.getSender().getLocalName());
 						final ACLMessage reply = msg.createReply();
 						reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
-						reply.setContent("Unexpected-act "
-								+ ACLMessage.getPerformative(msg
-										.getPerformative()));
+						reply.setContent("Unexpected-act " + msgText);
 						send(reply);
 					}
 				} else {
@@ -168,12 +166,9 @@ public class DA extends Agent {
 		}
 	}
 
-	protected void processLinks(ArrayList<String> links) {
+	protected void processLinks(Links links) {
 		// TODO: implement link processing
-		System.out.println(getLocalName() + " received links:");
-		for (final String l : links) {
-			System.out.println(l);
-		}
+		System.out.printf("%s received links: %s\n", getLocalName(), links);
 	}
 
 }

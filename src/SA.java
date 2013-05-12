@@ -9,61 +9,58 @@ import jade.lang.acl.MessageTemplate;
 import jade.wrapper.ControllerException;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 /**
  * Abstraction for Search Agent.
  */
 public abstract class SA extends Agent {
+
+	public static final String AGENT_TYPE = "SA";
 	private static final long serialVersionUID = 1L;
 
 	@Override
 	protected void setup() {
-		// Call abstract method
-		setupSA();
 		// Register the SA service in the yellow pages
 		final DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());
 		final ServiceDescription sd = new ServiceDescription();
-		sd.setType("SA");
+		sd.setType(AGENT_TYPE);
 		try {
 			sd.setName(getContainerController().getContainerName());
 		} catch (final ControllerException e) {
-			System.err.println(getLocalName()
-					+ " cannot get container name. Reason: " + e.getMessage());
+			System.err.printf("%s cannot get container name. Reason: %s\n",
+					getLocalName(), e.getMessage());
 			doDelete();
 		}
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
 		} catch (final FIPAException fe) {
-			System.err.println(getLocalName()
-					+ " registration with DF unsucceeded. Reason: "
-					+ fe.getMessage());
+			System.err.printf(
+					"%s registration with DF unsucceeded. Reason: %s\n",
+					getLocalName(), fe.getMessage());
 			doDelete();
 		}
 		// End registration with the DF
-		System.out.println("Search Agent " + getLocalName()
-				+ " succeeded in registration with DF.");
+		System.out.printf(
+				"Search Agent %s succeeded in registration with DF\n",
+				getLocalName());
 
 		addBehaviour(new ServeRequestsBehaviour());
 	}
 
 	@Override
 	protected void takeDown() {
-		// Call abstract method
-		takeDownSA();
 		// Deregister from the yellow pages
 		try {
 			DFService.deregister(this);
 		} catch (final FIPAException fe) {
-			System.err.println(getLocalName()
-					+ " deregistration with DF unsucceeded. Reason: "
-					+ fe.getMessage());
+			System.err.printf(
+					"%s deregistration with DF unsucceeded. Reason: %s\n",
+					getLocalName(), fe.getMessage());
 		}
 		// Printout a dismissal message
-		System.out.println("Search Agent " + getAID().getName()
-				+ " terminating.");
+		System.out.printf("Search Agent %s terminating\n", getAID().getName());
 	}
 
 	/**
@@ -81,16 +78,15 @@ public abstract class SA extends Agent {
 			if (msg != null) {
 				// REQUEST message received. Process it
 				final String keywords = msg.getContent();
-				System.out.printf("%s received REQUEST with content: %s",
+				System.out.printf("%s received REQUEST with content: %s\n",
 						getLocalName(), keywords);
 				final ACLMessage reply = msg.createReply();
 				reply.setPerformative(ACLMessage.INFORM);
 				try {
-					reply.setContentObject(find(keywords));
+					reply.setContentObject(getLinks(keywords));
 				} catch (final IOException e) {
-					// TODO: it is auto-generated so
-					// we should do sth with this
-					// for example sending REFUSE message instead of
+					// TODO: we should do sth with this for example sending
+					// REFUSE message instead of
 					// printStackTrace
 					e.printStackTrace();
 				}
@@ -101,10 +97,6 @@ public abstract class SA extends Agent {
 		}
 	} // End of inner class ServeRequestsBehaviour
 
-	protected abstract void setupSA();
-
-	protected abstract void takeDownSA();
-
-	protected abstract ArrayList<String> find(String keywords);
+	protected abstract Links getLinks(String keywords);
 
 }

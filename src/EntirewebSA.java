@@ -1,7 +1,7 @@
 /**
- * Search Agent using Bing.
+ * Search Agent using Entireweb.com.
  */
-public class BingSA extends SA {
+public class EntirewebSA extends SA {
 
 	private static final long serialVersionUID = 1L;
 
@@ -20,8 +20,7 @@ public class BingSA extends SA {
 	@Override
 	protected Links getLinks(String keywords) {
 		final Links links = new Links();
-		links.add("http://www.microsoft.com/");
-		links.add("http://msdn.microsoft.com/");
+		links.add("http://www.entireweb.com/");
 		return links;
 	}
 
