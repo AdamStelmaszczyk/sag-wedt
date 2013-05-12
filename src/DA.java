@@ -72,7 +72,7 @@ public class DA extends Agent {
 		System.out.println(getLocalName() + " found "
 				+ searchAgent.getLocalName() + " Search Agent.");
 
-		addBehaviour(new CommunicationBehaviour(this));
+		addBehaviour(new CommunicationBehaviour());
 	}
 
 	@Override
@@ -89,13 +89,7 @@ public class DA extends Agent {
 	private class CommunicationBehaviour extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
-		private final DA myAgent;
-
 		private int step = 0;
-
-		public CommunicationBehaviour(DA agent) {
-			myAgent = agent;
-		}
 
 		@Override
 		public void action() {
@@ -105,7 +99,7 @@ public class DA extends Agent {
 				final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 				request.addReceiver(searchAgent);
 				request.setContent(nextRequest());
-				myAgent.send(request);
+				DA.this.send(request);
 				step = 1;
 				break;
 			case 1:
@@ -135,7 +129,7 @@ public class DA extends Agent {
 						reply.setPerformative(ACLMessage.INFORM);
 						// TODO: send all relations possibly in many messages
 						final StringBuilder sb = new StringBuilder();
-						for (final String s : myAgent.relations) {
+						for (final String s : DA.this.relations) {
 							sb.append(s);
 							sb.append("\n");
 						}
