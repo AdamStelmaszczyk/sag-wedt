@@ -100,6 +100,6 @@ public abstract class SA extends Agent {
 		}
 	} // End of inner class ServeRequestsBehaviour
 
-	protected abstract Links getLinks(String keywords);
+	protected abstract Links getLinks(String keywords) throws IOException;
 
 }
