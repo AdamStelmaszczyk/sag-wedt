@@ -96,64 +96,80 @@ public class DA extends Agent {
 		public void action() {
 			switch (step) {
 			case 0:
-				// Send the keywords to Search Agent
-				final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
-				request.addReceiver(searchAgent);
-				request.setContent(nextRequest());
-				send(request);
-				step = 1;
+				requestLinksPortion();
 				break;
 			case 1:
 				// Receive messages
 				final ACLMessage msg = receive();
 				if (msg != null) {
 					if (msg.getPerformative() == ACLMessage.INFORM) {
-						// INFORM message received. Process it.
-						try {
-							final Links links = (Links) msg.getContentObject();
-							processLinks(links);
-							step = 0;
-						} catch (final UnreadableException e) {
-							System.err
-									.printf(getLocalName()
-											+ "%s cannot read INFORM message from %s. Reason: %s\n",
-											msg.getSender().getLocalName(),
-											e.getMessage());
-							step = 0;
-						}
+						handleLinksPortion(msg);
 					} else if (msg.getPerformative() == ACLMessage.REQUEST) {
-						// REQUEST message received. Send reply.
-						System.out.printf(
-								"DIPRE Agent %s received REQUEST message\n",
-								getLocalName());
-						final ACLMessage reply = msg.createReply();
-						reply.setPerformative(ACLMessage.INFORM);
-						// TODO: send all relations possibly in many messages
-						final StringBuilder sb = new StringBuilder();
-						for (final String s : relations) {
-							sb.append(s);
-							sb.append("\n");
-						}
-						reply.setContent(sb.toString());
-						send(reply);
+						handleRelationsRequest(msg);
 					} else {
-						// Unexpected message received. Send reply.
-						final String msgText = ACLMessage.getPerformative(msg
-								.getPerformative());
-						System.err
-								.printf("Agent %s - Unexpected message [%s] received from %s\n",
-										getLocalName(), msgText, msg
-												.getSender().getLocalName());
-						final ACLMessage reply = msg.createReply();
-						reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
-						reply.setContent("Unexpected-act " + msgText);
-						send(reply);
+						handleUnexpectedMsg(msg);
 					}
 				} else {
 					block();
 				}
 				break;
 			}
+		}
+
+		private void requestLinksPortion() {
+			// Send the keywords to Search Agent
+			final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+			request.addReceiver(searchAgent);
+			request.setContent(nextRequest());
+			send(request);
+			step = 1;
+		}
+
+		private void handleLinksPortion(final ACLMessage msg) {
+			// INFORM message received. Process it.
+			try {
+				final Links links = (Links) msg.getContentObject();
+				processLinks(links);
+				step = 0;
+			} catch (final UnreadableException e) {
+				System.err
+						.printf(getLocalName()
+								+ "%s cannot read INFORM message from %s. Reason: %s\n",
+								msg.getSender().getLocalName(),
+								e.getMessage());
+				step = 0;
+			}
+		}
+
+		private void handleUnexpectedMsg(final ACLMessage msg) {
+			// Unexpected message received. Send reply.
+			final String msgText = ACLMessage.getPerformative(msg
+					.getPerformative());
+			System.err
+					.printf("Agent %s - Unexpected message [%s] received from %s\n",
+							getLocalName(), msgText, msg
+									.getSender().getLocalName());
+			final ACLMessage reply = msg.createReply();
+			reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
+			reply.setContent("Unexpected-act " + msgText);
+			send(reply);
+		}
+
+		private void handleRelationsRequest(final ACLMessage msg) {
+			// REQUEST message received. Send reply.
+			System.out.printf(
+					"DIPRE Agent %s received REQUEST message\n",
+					getLocalName());
+			final ACLMessage reply = msg.createReply();
+			reply.setPerformative(ACLMessage.INFORM);
+			// TODO: send all relations possibly in many messages
+			final StringBuilder sb = new StringBuilder();
+			for (final String s : relations) {
+				sb.append(s);
+				sb.append("\n");
+			}
+			reply.setContent(sb.toString());
+			send(reply);
 		}
 	} // End of inner class CommunicationBehaviour
 
