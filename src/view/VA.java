@@ -1,8 +1,11 @@
 package view;
+
+import jade.content.lang.sl.SLCodec;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.domain.mobility.MobilityOntology;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
@@ -14,7 +17,12 @@ public class VA extends Agent {
 
 	private VAGui myGui;
 
+	@Override
 	protected void setup() {
+		// Register language and ontology
+		getContentManager().registerLanguage(new SLCodec());
+		getContentManager().registerOntology(MobilityOntology.getInstance());
+
 		// Create and show the GUI
 		myGui = new VAGui(this);
 		myGui.showGui();
@@ -23,6 +31,7 @@ public class VA extends Agent {
 		addBehaviour(new ReceiveMessagesBehaviour());
 	}
 
+	@Override
 	protected void takeDown() {
 		// Close the GUI
 		myGui.dispose();
@@ -37,6 +46,7 @@ public class VA extends Agent {
 		addBehaviour(new OneShotBehaviour() {
 			private static final long serialVersionUID = 1L;
 
+			@Override
 			public void action() {
 				// Send the REQUEST to DIPRE Agent
 				ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
@@ -53,6 +63,7 @@ public class VA extends Agent {
 	private class ReceiveMessagesBehaviour extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
+		@Override
 		public void action() {
 			MessageTemplate mt = MessageTemplate
 					.MatchPerformative(ACLMessage.INFORM);
