@@ -8,10 +8,12 @@ import java.net.URL;
 
 public class Network {
 
-	public static String doHttpGet(String urlToRead) throws IOException {
+	public static String doHttpRequest(String urlToRead, String requestMethod)
+			throws IOException {
 		final StringBuilder result = new StringBuilder();
 		final URL url = new URL(urlToRead);
 		final HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		conn.setRequestMethod(requestMethod);
 		final BufferedReader reader = new BufferedReader(new InputStreamReader(
 				conn.getInputStream()));
 		String line;
@@ -21,5 +23,4 @@ public class Network {
 		reader.close();
 		return result.toString();
 	}
-
 }

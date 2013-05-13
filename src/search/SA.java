@@ -22,7 +22,7 @@ public abstract class SA extends Agent {
 	public static final String AGENT_TYPE = "SA";
 	private static final long serialVersionUID = 1L;
 
-	protected abstract Links getLinks(String keywords) throws IOException;
+	protected abstract Links getLinks(String query) throws IOException;
 
 	@Override
 	protected void setup() {
