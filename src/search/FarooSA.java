@@ -25,7 +25,6 @@ public class FarooSA extends SA {
 		final String url = BASE_URL + URLEncoder.encode(query, ENCODING);
 		final String json = Network.doHttpRequest(url, "GET");
 		final FarooReply reply = new FarooReply(json);
-		System.out.println(json);
 		return reply.getLinks();
 	}
 
