@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 
-import com.google.gson.Gson;
 import common.Links;
 
 /**
@@ -23,26 +22,20 @@ public class FarooSA extends SA {
 
 	@Override
 	protected Links getLinks(String query) throws IOException {
-		final String url = BASE_URL + URLEncoder.encode(query, "UTF-8");
+		final String url = BASE_URL + URLEncoder.encode(query, ENCODING);
 		final String json = Network.doHttpRequest(url, "GET");
 		final FarooReply reply = new FarooReply(json);
+		System.out.println(json);
 		return reply.getLinks();
 	}
 
-	private class FarooReply {
-
-		private final Links links = new Links();
+	private class FarooReply extends JsonReply {
 
 		public FarooReply(String json) {
-			final Gson gson = new Gson();
 			final Reply reply = gson.fromJson(json, Reply.class);
 			for (final Result result : reply.results) {
 				links.add(result.url);
 			}
-		}
-
-		public Links getLinks() {
-			return links;
 		}
 
 		private class Reply {

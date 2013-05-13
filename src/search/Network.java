@@ -8,12 +8,15 @@ import java.net.URL;
 
 public class Network {
 
-	public static String doHttpRequest(String urlToRead, String requestMethod)
-			throws IOException {
+	public static String doHttpRequest(String urlToRead, String requestMethod,
+			String auth) throws IOException {
 		final StringBuilder result = new StringBuilder();
 		final URL url = new URL(urlToRead);
 		final HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		conn.setRequestMethod(requestMethod);
+		if (auth != null) {
+			conn.setRequestProperty("Authorization", "Basic " + auth);
+		}
 		final BufferedReader reader = new BufferedReader(new InputStreamReader(
 				conn.getInputStream()));
 		String line;
@@ -22,5 +25,10 @@ public class Network {
 		}
 		reader.close();
 		return result.toString();
+	}
+
+	public static String doHttpRequest(String url, String string)
+			throws IOException {
+		return doHttpRequest(url, string, null);
 	}
 }
