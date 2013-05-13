@@ -122,8 +122,8 @@ public class DA extends Agent {
 	}
 
 	/**
-	 * Inner class CommunicationBehaviour. This is the behaviour used by SA to
-	 * serve incoming requests from DA's.
+	 * Inner class CommunicationBehaviour. This is the behaviour used by DA to
+	 * serve and perform requests.
 	 */
 	private class CommunicationBehaviour extends CyclicBehaviour {
 
@@ -150,6 +150,8 @@ public class DA extends Agent {
 						handleLinksPortion(msg);
 					else if (msg.getPerformative() == ACLMessage.REQUEST)
 						handleRelationsRequest(msg);
+					else if (msg.getPerformative() == ACLMessage.REFUSE)
+						handleRefuseMsg(msg);
 					else
 						handleUnexpectedMsg(msg);
 				} else
@@ -186,19 +188,6 @@ public class DA extends Agent {
 			}
 		}
 
-		private void handleUnexpectedMsg(final ACLMessage msg) {
-			// Unexpected message received. Send reply.
-			final String msgType = ACLMessage.getPerformative(msg
-					.getPerformative());
-			System.err.printf(
-					"Agent %s - Unexpected message [%s] received from %s\n",
-					getLocalName(), msgType, msg.getSender().getLocalName());
-			final ACLMessage reply = msg.createReply();
-			reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
-			reply.setContent("Unexpected-act " + msgType);
-			send(reply);
-		}
-
 		private void handleRelationsRequest(final ACLMessage msg) {
 			// REQUEST message received. Send reply.
 			System.out.printf("DIPRE Agent %s received REQUEST message\n",
@@ -213,6 +202,28 @@ public class DA extends Agent {
 				sb.append("\n");
 			}
 			reply.setContent(sb.toString());
+			send(reply);
+		}
+
+		private void handleRefuseMsg(final ACLMessage msg) {
+			// REFUSE message received. Repeat query.
+			System.out
+					.printf("DIPRE Agent %s received REFUSE message from %s with content: %s\n",
+							getLocalName(), msg.getSender().getLocalName(),
+							msg.getContent());
+			step = 0;
+		}
+
+		private void handleUnexpectedMsg(final ACLMessage msg) {
+			// Unexpected message received. Send reply.
+			final String msgType = ACLMessage.getPerformative(msg
+					.getPerformative());
+			System.err.printf(
+					"Agent %s - Unexpected message [%s] received from %s\n",
+					getLocalName(), msgType, msg.getSender().getLocalName());
+			final ACLMessage reply = msg.createReply();
+			reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
+			reply.setContent("Unexpected-act " + msgType);
 			send(reply);
 		}
 	} // End of inner class CommunicationBehaviour

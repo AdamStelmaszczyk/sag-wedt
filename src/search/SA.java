@@ -86,18 +86,16 @@ public abstract class SA extends Agent {
 			final ACLMessage msg = myAgent.receive(mt);
 			if (msg != null) {
 				// REQUEST message received. Process it
-				final String keywords = msg.getContent();
+				final String query = msg.getContent();
 				System.out.printf("%s received REQUEST with content: %s\n",
-						getLocalName(), keywords);
+						getLocalName(), query);
 				final ACLMessage reply = msg.createReply();
 				reply.setPerformative(ACLMessage.INFORM);
 				try {
-					reply.setContentObject(getLinks(keywords));
+					reply.setContentObject(getLinks(query));
 				} catch (final IOException e) {
-					// TODO: we should do sth with this for example sending
-					// REFUSE message instead of
-					// printStackTrace
-					e.printStackTrace();
+					reply.setPerformative(ACLMessage.REFUSE);
+					reply.setContent(e.getMessage());
 				}
 				myAgent.send(reply);
 			} else {
