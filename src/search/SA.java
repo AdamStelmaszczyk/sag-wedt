@@ -1,13 +1,11 @@
 package search;
 
-import jade.content.lang.sl.SLCodec;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
-import jade.domain.mobility.MobilityOntology;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.wrapper.ControllerException;
@@ -29,10 +27,6 @@ public abstract class SA extends Agent {
 
 	@Override
 	protected void setup() {
-		// Register language and ontology
-		getContentManager().registerLanguage(new SLCodec());
-		getContentManager().registerOntology(MobilityOntology.getInstance());
-
 		// Register the SA service in the yellow pages
 		final DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());

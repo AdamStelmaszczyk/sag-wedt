@@ -6,7 +6,6 @@ import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
-import jade.content.onto.UngroundedException;
 import jade.content.onto.basic.Action;
 import jade.content.onto.basic.Result;
 import jade.core.AID;
@@ -56,12 +55,11 @@ public class DA extends Agent {
 		}
 	}
 
-	private final int SLEEP_MS = 1000;
+	private static final long serialVersionUID = 1L;
 	private final List<Relation> relations = new ArrayList<Relation>();
 	private AID searchAgent = new AID();
 	private final Codec codec = new SLCodec();
 	private final Ontology ontology = MobilityOntology.getInstance();
-	private static final long serialVersionUID = 1L;
 	private boolean fooTest = true; // Uzyte w zaslepce getNewRelation
 
 	@Override
@@ -86,8 +84,7 @@ public class DA extends Agent {
 			doDelete();
 			return;
 		}
-		System.out.println("DIPRE Agent " + getLocalName()
-				+ " is ready with relations:");
+		System.out.printf("%s is ready with relations:\n", getLocalName());
 		for (final Relation r : relations) {
 			System.out.println(r.toString());
 		}
@@ -98,7 +95,7 @@ public class DA extends Agent {
 	@Override
 	protected void takeDown() {
 		// Printout a dismissal message
-		System.out.printf("DIPRE Agent %s terminating\n", getAID().getName());
+		System.out.printf("%s terminating\n", getAID().getName());
 	}
 
 	@Override
@@ -115,7 +112,9 @@ public class DA extends Agent {
 	}
 
 	protected void init() {
-		registerLanguageAndOntology();
+		// Register language and ontology
+		getContentManager().registerLanguage(codec);
+		getContentManager().registerOntology(ontology);
 
 		SequentialBehaviour seqBehaviour = new SequentialBehaviour();
 		seqBehaviour.addSubBehaviour(new FindSearchAgentBehaviour());
@@ -123,42 +122,27 @@ public class DA extends Agent {
 		addBehaviour(seqBehaviour);
 	}
 
-	protected void registerLanguageAndOntology() {
-		// Register language and ontology
-		getContentManager().registerLanguage(codec);
-		getContentManager().registerOntology(ontology);
-	}
-
 	/*
 	 * Try to move agent to another container. If there is no other container
-	 * stay at this. TODO: improvements needed
+	 * stay at this.
 	 */
-	protected void tryToMoveAgent() {
-		// Get available locations with AMS
-		Action action = new Action(getAMS(), new QueryPlatformLocationsAction());
-		ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
-		request.setLanguage(codec.getName());
-		request.setOntology(ontology.getName());
+	protected boolean tryToMoveAgent() {
 		try {
+			// Get available locations with AMS
+			Action action = new Action(getAMS(),
+					new QueryPlatformLocationsAction());
+			ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+			request.setLanguage(codec.getName());
+			request.setOntology(ontology.getName());
 			getContentManager().fillContent(request, action);
-		} catch (CodecException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.err.println(e.getMessage());
-		} catch (OntologyException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.err.println(e.getMessage());
-		}
-		request.addReceiver(action.getActor());
-		send(request);
+			request.addReceiver(action.getActor());
+			send(request);
 
-		// Receive response from AMS
-		MessageTemplate mt = MessageTemplate.and(
-				MessageTemplate.MatchSender(getAMS()),
-				MessageTemplate.MatchPerformative(ACLMessage.INFORM));
-		ACLMessage resp = blockingReceive(mt);
-		try {
+			// Receive response from AMS
+			MessageTemplate mt = MessageTemplate.and(
+					MessageTemplate.MatchSender(getAMS()),
+					MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+			ACLMessage resp = blockingReceive(mt);
 			ContentElement ce = getContentManager().extractContent(resp);
 			Result result = (Result) ce;
 			jade.util.leap.Iterator it = result.getItems().iterator();
@@ -167,26 +151,30 @@ public class DA extends Agent {
 				Location loc = (Location) it.next();
 				locations.add(loc);
 			}
-			System.out.printf("%s see locations:\n%s\n", getLocalName(),
+			System.out.printf("%s see locations: %s\n", getLocalName(),
 					locations.toString());
 			// Move to first different location
-			Location current = here();
-			locations.remove(current);
-			Random rand = new Random();
-			if (locations.size() > 0)
+			locations.remove(here());
+			if (locations.size() > 0) {
+				Random rand = new Random();
 				doMove(locations.get(rand.nextInt(locations.size())));
-		} catch (UngroundedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.err.println(e.getMessage());
+				return true;
+			} else {
+				System.err
+						.printf("Cannot move %s because there is no other container.\n",
+								getLocalName());
+				return false;
+			}
 		} catch (CodecException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.err.println(e.getMessage());
+			System.err
+					.printf("Cannot move %s because of problem with codec. Reason: %s\n",
+							getLocalName(), e.getMessage());
+			return false;
 		} catch (OntologyException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			System.err.println(e.getMessage());
+			System.err
+					.printf("Cannot move %s because of problem with ontology. Reason: %s\n",
+							getLocalName(), e.getMessage());
+			return false;
 		}
 	}
 
@@ -195,9 +183,6 @@ public class DA extends Agent {
 	 * find SA.
 	 */
 	private class FindSearchAgentBehaviour extends Behaviour {
-
-		public static final int MAX_ATTEMPT = 3;
-
 		private static final long serialVersionUID = 1L;
 		private DFAgentDescription dfd = new DFAgentDescription();
 		int attempt = 0;
@@ -206,9 +191,11 @@ public class DA extends Agent {
 		@Override
 		public void action() {
 			// Search with the DF for the name of the SA
-			if (attempt == MAX_ATTEMPT) {
-				tryToMoveAgent();
-				attempt = 0;
+			if (attempt == 3) {
+				if (tryToMoveAgent())
+					return;
+				else
+					attempt = 0;
 			}
 			switch (step) {
 			case 0:
@@ -278,7 +265,7 @@ public class DA extends Agent {
 		public void action() {
 			// DEBUG only START
 			try {
-				Thread.sleep(SLEEP_MS);
+				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 			}
 			// DEBUG only END
@@ -335,13 +322,11 @@ public class DA extends Agent {
 
 		private void handleRelationsRequest(final ACLMessage msg) {
 			// REQUEST message received. Send reply.
-			System.out.printf("DIPRE Agent %s received REQUEST message\n",
-					getLocalName());
+			System.out.printf("%s received REQUEST message\n", getLocalName());
 			final ACLMessage reply = msg.createReply();
 			reply.setPerformative(ACLMessage.INFORM);
 			// TODO: send all relations possibly in many messages
 			final StringBuilder sb = new StringBuilder();
-			sb.append("Relations:"); // TODO: this line is temporary
 			for (final DA.Relation r : DA.this.relations) {
 				sb.append(r.toString());
 				sb.append("\n");
@@ -352,11 +337,12 @@ public class DA extends Agent {
 
 		private void handleRefuseMsg(final ACLMessage msg) {
 			// REFUSE message received. Repeat query.
-			System.out
-					.printf("DIPRE Agent %s received REFUSE message from %s with content: %s\n",
-							getLocalName(), msg.getSender().getLocalName(),
-							msg.getContent());
+			System.out.printf(
+					"%s received REFUSE message from %s with content: %s\n",
+					getLocalName(), msg.getSender().getLocalName(),
+					msg.getContent());
 			step = 0;
+			tryToMoveAgent();
 		}
 
 		private void handleUnexpectedMsg(final ACLMessage msg) {

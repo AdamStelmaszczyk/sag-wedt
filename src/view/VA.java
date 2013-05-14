@@ -1,11 +1,9 @@
 package view;
 
-import jade.content.lang.sl.SLCodec;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
-import jade.domain.mobility.MobilityOntology;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
@@ -19,10 +17,6 @@ public class VA extends Agent {
 
 	@Override
 	protected void setup() {
-		// Register language and ontology
-		getContentManager().registerLanguage(new SLCodec());
-		getContentManager().registerOntology(MobilityOntology.getInstance());
-
 		// Create and show the GUI
 		myGui = new VAGui(this);
 		myGui.showGui();
