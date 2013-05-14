@@ -8,7 +8,6 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import jade.wrapper.ControllerException;
 
 import java.io.IOException;
 
@@ -32,14 +31,7 @@ public abstract class SA extends Agent {
 		dfd.setName(getAID());
 		final ServiceDescription sd = new ServiceDescription();
 		sd.setType(AGENT_TYPE);
-		try {
-			sd.setName(getContainerController().getContainerName());
-		} catch (final ControllerException e) {
-			System.err.printf("%s cannot get container name. Reason: %s\n",
-					getLocalName(), e.getMessage());
-			doDelete();
-			return;
-		}
+		sd.setName(here().getName());
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
@@ -51,8 +43,7 @@ public abstract class SA extends Agent {
 			return;
 		}
 		// End registration with the DF
-		System.out.printf(
-				"Search Agent %s succeeded in registration with DF\n",
+		System.out.printf("%s succeeded in registration with DF.\n",
 				getLocalName());
 
 		addBehaviour(new ServeRequestsBehaviour());
@@ -69,7 +60,7 @@ public abstract class SA extends Agent {
 					getLocalName(), fe.getMessage());
 		}
 		// Printout a dismissal message
-		System.out.printf("Search Agent %s terminating\n", getAID().getName());
+		System.out.printf("%s is terminating.\n", getAID().getName());
 	}
 
 	/**

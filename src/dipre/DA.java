@@ -15,6 +15,7 @@ import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.SequentialBehaviour;
 import jade.domain.DFService;
+import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.SearchConstraints;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
@@ -23,7 +24,6 @@ import jade.domain.mobility.MobilityOntology;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.lang.acl.UnreadableException;
-import jade.wrapper.ControllerException;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -67,47 +67,50 @@ public class DA extends Agent {
 		// Get the relations as a start-up argument
 		final Object[] args = getArguments();
 		if (args != null) {
-			for (final Object o : args) {
-				String s = o.toString();
-				String[] parts = s.split("#");
-				if (parts.length != 2) {
-					System.err.printf("Bad relation [%s] passed to %s\n", s,
-							getLocalName());
+			for (final Object arg : args) {
+				String relation = arg.toString();
+				String[] elements = relation.split("#");
+				if (elements.length != 2) {
+					System.err
+							.printf("Relation \"%s\" passed to %s has wrong format."
+									+ " Only binary relations with elements separeted by # are correct.\n",
+									relation, getLocalName());
 					doDelete();
 					return;
 				}
-				relations.add(new Relation(parts[0], parts[1]));
+				relations.add(new Relation(elements[0], elements[1]));
 			}
 		} else {
-			System.err.printf("At least one relation is required to %s\n",
+			System.err.printf(
+					"At least one relation is required to start %s.\n",
 					getLocalName());
 			doDelete();
 			return;
 		}
-		System.out.printf("%s is ready with relations:\n", getLocalName());
-		for (final Relation r : relations) {
-			System.out.println(r.toString());
-		}
+		System.out.printf("%s is ready with relations: %s.\n", getLocalName(),
+				relations.toString());
 
+		// Initialize agent
 		init();
 	}
 
 	@Override
 	protected void takeDown() {
 		// Printout a dismissal message
-		System.out.printf("%s terminating\n", getAID().getName());
+		System.out.printf("%s is terminating.\n", getAID().getName());
 	}
 
 	@Override
 	protected void beforeMove() {
-		System.out.printf("%s is now moving itself from location: %s\n",
-				getLocalName(), here().getName());
+		System.out.printf("%s is now moving itself from %s.\n", getLocalName(),
+				here().getName());
 	}
 
 	@Override
 	protected void afterMove() {
-		System.out.printf("%s has moved itself. New location: %s\n",
-				getLocalName(), here().getName());
+		System.out.printf("%s has moved itself to %s.\n", getLocalName(),
+				here().getName());
+		// Initialize agent
 		init();
 	}
 
@@ -122,7 +125,7 @@ public class DA extends Agent {
 		addBehaviour(seqBehaviour);
 	}
 
-	/*
+	/**
 	 * Try to move agent to another container. If there is no other container
 	 * stay at this.
 	 */
@@ -146,12 +149,12 @@ public class DA extends Agent {
 			ContentElement ce = getContentManager().extractContent(resp);
 			Result result = (Result) ce;
 			jade.util.leap.Iterator it = result.getItems().iterator();
-			ArrayList<Location> locations = new ArrayList<Location>();
+			List<Location> locations = new ArrayList<Location>();
 			while (it.hasNext()) {
 				Location loc = (Location) it.next();
 				locations.add(loc);
 			}
-			System.out.printf("%s see locations: %s\n", getLocalName(),
+			System.out.printf("%s see locations: %s.\n", getLocalName(),
 					locations.toString());
 			// Move to first different location
 			locations.remove(here());
@@ -183,6 +186,7 @@ public class DA extends Agent {
 	 * find SA.
 	 */
 	private class FindSearchAgentBehaviour extends Behaviour {
+
 		private static final long serialVersionUID = 1L;
 		private DFAgentDescription dfd = new DFAgentDescription();
 		int attempt = 0;
@@ -201,23 +205,14 @@ public class DA extends Agent {
 			case 0:
 				final ServiceDescription sd = new ServiceDescription();
 				sd.setType(SA.AGENT_TYPE);
-				try {
-					sd.setName(getContainerController().getContainerName());
-				} catch (final ControllerException e) {
-					System.err.printf(
-							"%s cannot get container name. Reason: %s\n",
-							getLocalName(), e.getMessage());
-					++attempt;
-					break;
-				}
+				sd.setName(here().getName());
 				dfd.addServices(sd);
-				attempt = 0;
 				++step;
 				break;
 			case 1:
 				try {
 					System.out.printf(
-							"%s waiting for an SA registering with the DF\n",
+							"%s is searching for SA on the yellow pages.\n",
 							getLocalName());
 					final SearchConstraints c = new SearchConstraints();
 					c.setMaxDepth(3L);
@@ -226,21 +221,21 @@ public class DA extends Agent {
 					if ((result != null) && (result.length > 0)) {
 						dfd = result[0];
 						searchAgent = dfd.getName();
+						System.out.printf("%s found %s SA.\n", getLocalName(),
+								searchAgent.getLocalName());
+						++step;
 					} else {
+						System.err.printf("%s cannot find SA.\n",
+								getLocalName());
 						++attempt;
-						break;
 					}
-				} catch (final Exception fe) {
+				} catch (final FIPAException fe) {
 					fe.printStackTrace();
-					System.err
-							.printf("%s search with DF is not succeeded because of %s\n",
-									getLocalName(), fe.getMessage());
+					System.err.printf(
+							"%s search with DF is not succeeded. Reason: %s\n",
+							getLocalName(), fe.getMessage());
 					++attempt;
-					break;
 				}
-				System.out.printf("%s found %s Search Agent\n", getLocalName(),
-						searchAgent.getLocalName());
-				++step;
 				break;
 			}
 		}
@@ -322,7 +317,7 @@ public class DA extends Agent {
 
 		private void handleRelationsRequest(final ACLMessage msg) {
 			// REQUEST message received. Send reply.
-			System.out.printf("%s received REQUEST message\n", getLocalName());
+			System.out.printf("%s received REQUEST message.\n", getLocalName());
 			final ACLMessage reply = msg.createReply();
 			reply.setPerformative(ACLMessage.INFORM);
 			// TODO: send all relations possibly in many messages
@@ -349,14 +344,16 @@ public class DA extends Agent {
 			// Unexpected message received. Send reply.
 			final String msgType = ACLMessage.getPerformative(msg
 					.getPerformative());
-			System.err.printf(
-					"Agent %s - Unexpected message [%s] received from %s\n",
-					getLocalName(), msgType, msg.getSender().getLocalName());
+			System.err
+					.printf("%s received unexpected %s message from %s with content: %s\n",
+							getLocalName(), msgType, msg.getSender()
+									.getLocalName(), msg.getContent());
 			final ACLMessage reply = msg.createReply();
 			reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
-			reply.setContent("Unexpected-act " + msgType);
+			reply.setContent("Unexpected act: " + msgType);
 			send(reply);
 		}
+
 	} // End of inner class CommunicationBehaviour
 
 	protected String nextRequest() {
@@ -369,7 +366,8 @@ public class DA extends Agent {
 
 	protected void processLinks(Links links) {
 		// TODO: implement link processing
-		System.out.printf("%s received links: %s\n", getLocalName(), links);
+		System.out.printf("%s received links: %s.\n", getLocalName(),
+				links.toString());
 	}
 
 	/**
@@ -386,7 +384,7 @@ public class DA extends Agent {
 				Relation newRelation = getNewRelation(innerLink, pattern);
 				if (newRelation != null) {
 					relations.add(newRelation);
-					System.out.printf("%s got new relation: %s\n",
+					System.out.printf("%s got new relation: %s.\n",
 							getLocalName(), newRelation.toString());
 				}
 			}
