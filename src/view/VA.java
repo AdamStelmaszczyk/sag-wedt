@@ -43,7 +43,7 @@ public class VA extends Agent {
 			@Override
 			public void action() {
 				// Send the REQUEST to DIPRE Agent
-				ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+				final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 				request.addReceiver(new AID(name, isGUID));
 				request.setContent("Give me your relations.");
 				VA.this.send(request);
@@ -59,9 +59,9 @@ public class VA extends Agent {
 
 		@Override
 		public void action() {
-			MessageTemplate mt = MessageTemplate
+			final MessageTemplate mt = MessageTemplate
 					.MatchPerformative(ACLMessage.INFORM);
-			ACLMessage msg = myAgent.receive(mt);
+			final ACLMessage msg = myAgent.receive(mt);
 			if (msg != null) {
 				// INFORM Message received. Process it
 				myGui.appendRelations(msg.getContent());

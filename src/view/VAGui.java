@@ -1,4 +1,5 @@
 package view;
+
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -20,28 +21,29 @@ import javax.swing.JTextField;
 class VAGui extends JFrame {
 	private static final long serialVersionUID = 1L;
 
-	private VA myAgent;
+	private final VA myAgent;
 
-	private JCheckBox isLocalNameCheckBox;
-	private JTextField nameTextField;
-	private JTextArea relationsTextArea;
+	private final JCheckBox isLocalNameCheckBox;
+	private final JTextField nameTextField;
+	private final JTextArea relationsTextArea;
 
 	VAGui(VA a) {
 		super(a.getLocalName());
 
 		myAgent = a;
 
-		ActionListener getRelationsListener = new ActionListener() {
+		final ActionListener getRelationsListener = new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent ev) {
 				relationsTextArea.setText("");
-				String name = nameTextField.getText().trim();
+				final String name = nameTextField.getText().trim();
 				myAgent.getRelations(name, !isLocalNameCheckBox.isSelected());
 			}
 		};
 
-		JPanel northPanel = new JPanel();
+		final JPanel northPanel = new JPanel();
 		northPanel.setLayout(new BorderLayout());
-		JPanel northFlowPanel = new JPanel();
+		final JPanel northFlowPanel = new JPanel();
 		northFlowPanel.add(new JLabel("NAME:"));
 		isLocalNameCheckBox = new JCheckBox();
 		isLocalNameCheckBox
@@ -53,7 +55,7 @@ class VAGui extends JFrame {
 		northPanel.add(nameTextField, BorderLayout.CENTER);
 		getContentPane().add(northPanel, BorderLayout.NORTH);
 
-		JPanel centerPanel = new JPanel();
+		final JPanel centerPanel = new JPanel();
 		centerPanel.setLayout(new BorderLayout());
 		centerPanel.add(new JLabel("Relations:"), BorderLayout.NORTH);
 		relationsTextArea = new JTextArea();
@@ -62,12 +64,13 @@ class VAGui extends JFrame {
 				.add(new JScrollPane(relationsTextArea), BorderLayout.CENTER);
 		getContentPane().add(centerPanel, BorderLayout.CENTER);
 
-		JPanel southPanel = new JPanel();
-		JButton getRelationsButton = new JButton("Get relations");
+		final JPanel southPanel = new JPanel();
+		final JButton getRelationsButton = new JButton("Get relations");
 		getRelationsButton.addActionListener(getRelationsListener);
 		southPanel.add(getRelationsButton);
-		JButton clearRelationsButton = new JButton("Clear");
+		final JButton clearRelationsButton = new JButton("Clear");
 		clearRelationsButton.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent ev) {
 				relationsTextArea.setText("");
 			}
@@ -77,6 +80,7 @@ class VAGui extends JFrame {
 
 		// Make the agent terminate when the user closes the GUI
 		addWindowListener(new WindowAdapter() {
+			@Override
 			public void windowClosing(WindowEvent e) {
 				myAgent.doDelete();
 			}

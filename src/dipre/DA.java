@@ -68,8 +68,8 @@ public class DA extends Agent {
 		final Object[] args = getArguments();
 		if (args != null) {
 			for (final Object arg : args) {
-				String relation = arg.toString();
-				String[] elements = relation.split("#");
+				final String relation = arg.toString();
+				final String[] elements = relation.split("#");
 				if (elements.length != 2) {
 					System.err
 							.printf("Relation \"%s\" passed to %s has wrong format."
@@ -119,7 +119,7 @@ public class DA extends Agent {
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(ontology);
 
-		SequentialBehaviour seqBehaviour = new SequentialBehaviour();
+		final SequentialBehaviour seqBehaviour = new SequentialBehaviour();
 		seqBehaviour.addSubBehaviour(new FindSearchAgentBehaviour());
 		seqBehaviour.addSubBehaviour(new CommunicationBehaviour());
 		addBehaviour(seqBehaviour);
@@ -132,9 +132,9 @@ public class DA extends Agent {
 	protected boolean tryToMoveAgent() {
 		try {
 			// Get available locations with AMS
-			Action action = new Action(getAMS(),
+			final Action action = new Action(getAMS(),
 					new QueryPlatformLocationsAction());
-			ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+			final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 			request.setLanguage(codec.getName());
 			request.setOntology(ontology.getName());
 			getContentManager().fillContent(request, action);
@@ -142,16 +142,16 @@ public class DA extends Agent {
 			send(request);
 
 			// Receive response from AMS
-			MessageTemplate mt = MessageTemplate.and(
+			final MessageTemplate mt = MessageTemplate.and(
 					MessageTemplate.MatchSender(getAMS()),
 					MessageTemplate.MatchPerformative(ACLMessage.INFORM));
-			ACLMessage resp = blockingReceive(mt);
-			ContentElement ce = getContentManager().extractContent(resp);
-			Result result = (Result) ce;
-			jade.util.leap.Iterator it = result.getItems().iterator();
-			List<Location> locations = new ArrayList<Location>();
+			final ACLMessage resp = blockingReceive(mt);
+			final ContentElement ce = getContentManager().extractContent(resp);
+			final Result result = (Result) ce;
+			final jade.util.leap.Iterator it = result.getItems().iterator();
+			final List<Location> locations = new ArrayList<Location>();
 			while (it.hasNext()) {
-				Location loc = (Location) it.next();
+				final Location loc = (Location) it.next();
 				locations.add(loc);
 			}
 			System.out.printf("%s see locations: %s.\n", getLocalName(),
@@ -159,7 +159,7 @@ public class DA extends Agent {
 			// Move to first different location
 			locations.remove(here());
 			if (locations.size() > 0) {
-				Random rand = new Random();
+				final Random rand = new Random();
 				doMove(locations.get(rand.nextInt(locations.size())));
 				return true;
 			} else {
@@ -168,12 +168,12 @@ public class DA extends Agent {
 								getLocalName());
 				return false;
 			}
-		} catch (CodecException e) {
+		} catch (final CodecException e) {
 			System.err
 					.printf("Cannot move %s because of problem with codec. Reason: %s\n",
 							getLocalName(), e.getMessage());
 			return false;
-		} catch (OntologyException e) {
+		} catch (final OntologyException e) {
 			System.err
 					.printf("Cannot move %s because of problem with ontology. Reason: %s\n",
 							getLocalName(), e.getMessage());
@@ -196,10 +196,11 @@ public class DA extends Agent {
 		public void action() {
 			// Search with the DF for the name of the SA
 			if (attempt == 3) {
-				if (tryToMoveAgent())
+				if (tryToMoveAgent()) {
 					return;
-				else
+				} else {
 					attempt = 0;
+				}
 			}
 			switch (step) {
 			case 0:
@@ -261,7 +262,7 @@ public class DA extends Agent {
 			// DEBUG only START
 			try {
 				Thread.sleep(2000);
-			} catch (InterruptedException e) {
+			} catch (final InterruptedException e) {
 			}
 			// DEBUG only END
 			switch (step) {
@@ -272,16 +273,18 @@ public class DA extends Agent {
 				// Receive messages
 				final ACLMessage msg = receive();
 				if (msg != null) {
-					if (msg.getPerformative() == ACLMessage.INFORM)
+					if (msg.getPerformative() == ACLMessage.INFORM) {
 						handleLinksPortion(msg);
-					else if (msg.getPerformative() == ACLMessage.REQUEST)
+					} else if (msg.getPerformative() == ACLMessage.REQUEST) {
 						handleRelationsRequest(msg);
-					else if (msg.getPerformative() == ACLMessage.REFUSE)
+					} else if (msg.getPerformative() == ACLMessage.REFUSE) {
 						handleRefuseMsg(msg);
-					else
+					} else {
 						handleUnexpectedMsg(msg);
-				} else
+					}
+				} else {
 					block();
+				}
 				break;
 			}
 		}
@@ -290,7 +293,7 @@ public class DA extends Agent {
 			// Send the keywords to Search Agent
 			final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 			request.addReceiver(searchAgent);
-			String relation = nextRequest();
+			final String relation = nextRequest();
 			if (relation != null) {
 				request.setContent(relation);
 				send(request);
@@ -322,7 +325,7 @@ public class DA extends Agent {
 			reply.setPerformative(ACLMessage.INFORM);
 			// TODO: send all relations possibly in many messages
 			final StringBuilder sb = new StringBuilder();
-			for (final DA.Relation r : DA.this.relations) {
+			for (final DA.Relation r : relations) {
 				sb.append(r.toString());
 				sb.append("\n");
 			}
@@ -358,10 +361,11 @@ public class DA extends Agent {
 
 	protected String nextRequest() {
 		// TODO: implement choosing next relation to query Search Agent
-		if (relations.isEmpty())
+		if (relations.isEmpty()) {
 			return null;
-		else
+		} else {
 			return relations.get(0).toString();
+		}
 	}
 
 	protected void processLinks(Links links) {
@@ -375,13 +379,13 @@ public class DA extends Agent {
 	 */
 	protected void dipre(Links links) {
 		// Relation relation = relations.remove(0); // TODO: temporary remove
-		Relation relation = relations.get(0);
-		for (String link : links) {
-			String pattern = getPattern(link, relation);
+		final Relation relation = relations.get(0);
+		for (final String link : links) {
+			final String pattern = getPattern(link, relation);
 			// TODO magic number:)
-			Links innerLinks = getInnerLinks(link, 2);
-			for (String innerLink : innerLinks) {
-				Relation newRelation = getNewRelation(innerLink, pattern);
+			final Links innerLinks = getInnerLinks(link, 2);
+			for (final String innerLink : innerLinks) {
+				final Relation newRelation = getNewRelation(innerLink, pattern);
 				if (newRelation != null) {
 					relations.add(newRelation);
 					System.out.printf("%s got new relation: %s.\n",

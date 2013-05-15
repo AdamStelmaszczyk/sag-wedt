@@ -1,7 +1,6 @@
 package search;
 
 import com.google.gson.Gson;
-
 import common.Links;
 
 abstract public class JsonReply {
