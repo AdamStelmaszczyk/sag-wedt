@@ -25,7 +25,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.lang.acl.UnreadableException;
 
-import java.io.Serializable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -33,34 +33,30 @@ import java.util.Random;
 import search.SA;
 
 import common.Links;
+import common.Relation;
+import common.SAResult;
 
 /**
  * DIPRE Agent.
  */
 public class DA extends Agent {
 
-	private class Relation implements Serializable {
-		private static final long serialVersionUID = 1L;
-		public String first;
-		public String second;
-
-		public Relation(String f, String s) {
-			first = f;
-			second = s;
-		}
-
-		@Override
-		public String toString() {
-			return first + " " + second;
-		}
-	}
-
 	private static final long serialVersionUID = 1L;
-	private final List<Relation> relations = new ArrayList<Relation>();
+	private final int maxRelationsSearchedBeforeMove = 10; // Probably it will
+															// be program
+															// parameter
+	private final List<Relation> relationsToSearch = new ArrayList<Relation>();
+	private final List<Relation> relationsArchive = new ArrayList<Relation>();
+	private final List<Relation> relationsSecondChance = new ArrayList<Relation>();
 	private AID searchAgent = new AID();
 	private final Codec codec = new SLCodec();
 	private final Ontology ontology = MobilityOntology.getInstance();
 	private boolean fooTest = true; // Uzyte w zaslepce getNewRelation
+	private int relationsSearchedAfertMove = 0; // Total number of relations
+												// searched
+												// in SA after move. Probably
+												// will be
+												// used to decide, when to move.
 
 	@Override
 	protected void setup() {
@@ -78,7 +74,7 @@ public class DA extends Agent {
 					doDelete();
 					return;
 				}
-				relations.add(new Relation(elements[0], elements[1]));
+				relationsToSearch.add(new Relation(elements[0], elements[1]));
 			}
 		} else {
 			System.err.printf(
@@ -88,7 +84,7 @@ public class DA extends Agent {
 			return;
 		}
 		System.out.printf("%s is ready with relations: %s.\n", getLocalName(),
-				relations.toString());
+				relationsToSearch.toString());
 
 		// Initialize agent
 		init();
@@ -104,13 +100,23 @@ public class DA extends Agent {
 	protected void beforeMove() {
 		System.out.printf("%s is now moving itself from %s.\n", getLocalName(),
 				here().getName());
+		// Insert all relations, that didn't gave any results
+		// in current SA, into the begin of list. They will be checked in
+		// new SA.
+
+		relationsToSearch.addAll(0, relationsSecondChance);
+		relationsSecondChance.clear();
+
 	}
 
 	@Override
 	protected void afterMove() {
 		System.out.printf("%s has moved itself to %s.\n", getLocalName(),
 				here().getName());
+		// System.out.println("Relacje do wyszukiwania");
+		// System.out.println(relationsToSearch);
 		// Initialize agent
+		relationsSearchedAfertMove = 0;
 		init();
 	}
 
@@ -286,6 +292,11 @@ public class DA extends Agent {
 					block();
 				}
 				break;
+			case 2:
+				tryToMoveAgent();
+				this.block();
+				step = 0;
+
 			}
 		}
 
@@ -293,20 +304,41 @@ public class DA extends Agent {
 			// Send the keywords to Search Agent
 			final ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
 			request.addReceiver(searchAgent);
-			final String relation = nextRequest();
+			final Relation relation = nextRequest();
 			if (relation != null) {
-				request.setContent(relation);
-				send(request);
-			} // TODO: else? which step?
-			step = 1;
+				relationsSearchedAfertMove++;
+				if (relationsSearchedAfertMove > maxRelationsSearchedBeforeMove)
+					step = 2;
+				else {
+					try {
+						request.setContentObject(relation);
+					} catch (IOException e) {
+						System.out
+								.println("Warning: error during serialization of relation");
+					}
+					send(request);
+					step = 1;
+				}
+			} else {
+				step = 2; // We should change SA
+			}
+
 		}
 
 		private void handleLinksPortion(final ACLMessage msg) {
 			// INFORM message received. Process it.
 			try {
-				final Links links = (Links) msg.getContentObject();
-				processLinks(links); // TODO to chyba do smieci
-				dipre(links);
+				if (!msg.getSender().getName().equals(searchAgent.getName())) {
+					// We get link portion from wrong agent
+					// TODO maybe this situation shouldn't happen
+					System.out.println("INFO::Recived message from wrong SA");
+					return;
+				}
+				System.out.println("Paczka linkow");
+				final SAResult result = (SAResult) msg.getContentObject();
+				// System.out.println(links);
+				dipre(result.getLinks(), result.getRelation());
+
 			} catch (final UnreadableException e) {
 				System.err.printf(
 						"%s cannot read INFORM message from %s. Reason: %s\n",
@@ -314,7 +346,6 @@ public class DA extends Agent {
 						e.getMessage());
 			} finally {
 				step = 0;
-				tryToMoveAgent(); // TODO: probably it's temporary
 			}
 		}
 
@@ -325,7 +356,18 @@ public class DA extends Agent {
 			reply.setPerformative(ACLMessage.INFORM);
 			// TODO: send all relations possibly in many messages
 			final StringBuilder sb = new StringBuilder();
-			for (final DA.Relation r : relations) {
+			sb.append("--Archive:\n");
+			for (final Relation r : relationsArchive) {
+				sb.append(r.toString());
+				sb.append("\n");
+			}
+			sb.append("--To be searched:\n");
+			for (final Relation r : relationsToSearch) {
+				sb.append(r.toString());
+				sb.append("\n");
+			}
+			sb.append("--Waiting for a second chance in another SA:\n");
+			for (final Relation r : relationsSecondChance) {
 				sb.append(r.toString());
 				sb.append("\n");
 			}
@@ -340,7 +382,6 @@ public class DA extends Agent {
 					getLocalName(), msg.getSender().getLocalName(),
 					msg.getContent());
 			step = 0;
-			tryToMoveAgent();
 		}
 
 		private void handleUnexpectedMsg(final ACLMessage msg) {
@@ -359,39 +400,43 @@ public class DA extends Agent {
 
 	} // End of inner class CommunicationBehaviour
 
-	protected String nextRequest() {
-		// TODO: implement choosing next relation to query Search Agent
-		if (relations.isEmpty()) {
+	protected Relation nextRequest() {
+		if (relationsToSearch.isEmpty()) {
 			return null;
 		} else {
-			return relations.get(0).toString();
+			return relationsToSearch.get(0);
 		}
-	}
-
-	protected void processLinks(Links links) {
-		// TODO: implement link processing
-		System.out.printf("%s received links: %s.\n", getLocalName(),
-				links.toString());
 	}
 
 	/**
 	 * Method to perform DIPRE algorithm on web pages given in links
 	 */
-	protected void dipre(Links links) {
-		// Relation relation = relations.remove(0); // TODO: temporary remove
-		final Relation relation = relations.get(0);
+	protected void dipre(Links links, Relation relation) {
+		boolean deleted = relationsToSearch.remove(relation);
+		if (deleted == false) {
+			System.out
+					.println("INFO::Handled error connected with synchronization");
+			return;
+		}
+		int numOfNewRelations = 0;
 		for (final String link : links) {
 			final String pattern = getPattern(link, relation);
 			// TODO magic number:)
 			final Links innerLinks = getInnerLinks(link, 2);
+
 			for (final String innerLink : innerLinks) {
 				final Relation newRelation = getNewRelation(innerLink, pattern);
 				if (newRelation != null) {
-					relations.add(newRelation);
+					numOfNewRelations++;
+					relationsArchive.add(relation);
+					relationsToSearch.add(newRelation);
 					System.out.printf("%s got new relation: %s.\n",
 							getLocalName(), newRelation.toString());
 				}
-			}
+			}// for innerLink
+		}// for link
+		if (numOfNewRelations == 0) {// No new relations found in current links
+			relationsSecondChance.add(relation);
 		}
 	}
 
@@ -405,9 +450,7 @@ public class DA extends Agent {
 	protected Links getInnerLinks(String link, int deepthLevel) {
 		// TODO zaslepka metody
 		final Links links = new Links();
-		links.add("http://www.microsoft.com/page_id/13");
-		links.add("http://msdn.microsoft.com/page_id/14");
-		links.add("http://msdn.microsoft.com/page_id/15");
+		links.add(link);
 		return links;
 	}
 
