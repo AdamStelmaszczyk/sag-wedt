@@ -29,12 +29,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import search.SA;
 
 import common.Links;
 import common.Relation;
-import common.SAResult;
+import search.Network;
 
 /**
  * DIPRE Agent.
@@ -42,16 +44,17 @@ import common.SAResult;
 public class DA extends Agent {
 
 	private static final long serialVersionUID = 1L;
-	private final int maxRelationsSearchedBeforeMove = 10; // Probably it will
+	private final int maxRelationsSearchedBeforeMove = 1; // Probably it will
 															// be program
 															// parameter
+	private final int maxLinkLevel = 2;
+	private boolean willBeMoved = false;
 	private final List<Relation> relationsToSearch = new ArrayList<Relation>();
 	private final List<Relation> relationsArchive = new ArrayList<Relation>();
 	private final List<Relation> relationsSecondChance = new ArrayList<Relation>();
 	private AID searchAgent = new AID();
 	private final Codec codec = new SLCodec();
 	private final Ontology ontology = MobilityOntology.getInstance();
-	private boolean fooTest = true; // Uzyte w zaslepce getNewRelation
 	private int relationsSearchedAfertMove = 0; // Total number of relations
 												// searched
 												// in SA after move. Probably
@@ -106,6 +109,7 @@ public class DA extends Agent {
 
 		relationsToSearch.addAll(0, relationsSecondChance);
 		relationsSecondChance.clear();
+		searchAgent = null;
 
 	}
 
@@ -114,10 +118,13 @@ public class DA extends Agent {
 		System.out.printf("%s has moved itself to %s.\n", getLocalName(),
 				here().getName());
 		// System.out.println("Relacje do wyszukiwania");
-		// System.out.println(relationsToSearch);
+		System.out.println("afterMove");
 		// Initialize agent
 		relationsSearchedAfertMove = 0;
-		init();
+		getContentManager().registerLanguage(codec);
+		getContentManager().registerOntology(ontology);
+		addBehaviour(new FindSearchAgentBehaviour());
+		willBeMoved = false;
 	}
 
 	protected void init() {
@@ -200,23 +207,30 @@ public class DA extends Agent {
 
 		@Override
 		public void action() {
+			System.out.println("FindSearchAgentBehaviour");
 			// Search with the DF for the name of the SA
 			if (attempt == 3) {
 				if (tryToMoveAgent()) {
+					willBeMoved = true;
+					step = 2;
 					return;
 				} else {
 					attempt = 0;
 				}
 			}
+
 			switch (step) {
 			case 0:
+				System.out.println("dupa0");
 				final ServiceDescription sd = new ServiceDescription();
 				sd.setType(SA.AGENT_TYPE);
 				sd.setName(here().getName());
 				dfd.addServices(sd);
+				System.out.println("dupa0k");
 				++step;
 				break;
 			case 1:
+				System.out.println("dupa1");
 				try {
 					System.out.printf(
 							"%s is searching for SA on the yellow pages.\n",
@@ -261,21 +275,26 @@ public class DA extends Agent {
 	private class CommunicationBehaviour extends CyclicBehaviour {
 
 		private static final long serialVersionUID = 1L;
-		private int step = 0;
+		private static final int stateRequestLinks = 0;
+		private static final int stateHandleMsg = 1;
+		private static final int stateTryMove = 2;
+
+		private int state = stateRequestLinks;
 
 		@Override
 		public void action() {
-			// DEBUG only START
-			try {
-				Thread.sleep(2000);
-			} catch (final InterruptedException e) {
-			}
-			// DEBUG only END
-			switch (step) {
-			case 0:
-				requestLinksPortion();
+
+			if (willBeMoved || searchAgent == null)
+				return; // Wait for steady state
+			switch (state) {
+			case stateRequestLinks:
+
+				if (relationsSearchedAfertMove == maxRelationsSearchedBeforeMove)
+					state = stateTryMove;
+				else
+					requestLinksPortion();
 				break;
-			case 1:
+			case stateHandleMsg:
 				// Receive messages
 				final ACLMessage msg = receive();
 				if (msg != null) {
@@ -292,11 +311,12 @@ public class DA extends Agent {
 					block();
 				}
 				break;
-			case 2:
-				tryToMoveAgent();
-				this.block();
-				step = 0;
-
+			case stateTryMove:
+				if (!willBeMoved && tryToMoveAgent()) {
+					willBeMoved = true;
+					state = stateRequestLinks;
+				}
+				return;
 			}
 		}
 
@@ -306,21 +326,13 @@ public class DA extends Agent {
 			request.addReceiver(searchAgent);
 			final Relation relation = nextRequest();
 			if (relation != null) {
+				request.setContent(relation.toString());
+				send(request);
 				relationsSearchedAfertMove++;
-				if (relationsSearchedAfertMove > maxRelationsSearchedBeforeMove)
-					step = 2;
-				else {
-					try {
-						request.setContentObject(relation);
-					} catch (IOException e) {
-						System.out
-								.println("Warning: error during serialization of relation");
-					}
-					send(request);
-					step = 1;
-				}
+				state = stateHandleMsg; // Wait for response
+
 			} else {
-				step = 2; // We should change SA
+				state = stateTryMove; // We should change SA
 			}
 
 		}
@@ -329,15 +341,13 @@ public class DA extends Agent {
 			// INFORM message received. Process it.
 			try {
 				if (!msg.getSender().getName().equals(searchAgent.getName())) {
-					// We get link portion from wrong agent
-					// TODO maybe this situation shouldn't happen
+					// TODO to powinno byc docelowo niepotrzebne
 					System.out.println("INFO::Recived message from wrong SA");
 					return;
 				}
-				System.out.println("Paczka linkow");
-				final SAResult result = (SAResult) msg.getContentObject();
+				final Links links = (Links) msg.getContentObject();
 				// System.out.println(links);
-				dipre(result.getLinks(), result.getRelation());
+				dipre(links);
 
 			} catch (final UnreadableException e) {
 				System.err.printf(
@@ -345,13 +355,12 @@ public class DA extends Agent {
 						getLocalName(), msg.getSender().getLocalName(),
 						e.getMessage());
 			} finally {
-				step = 0;
+				state = stateRequestLinks;
 			}
 		}
 
 		private void handleRelationsRequest(final ACLMessage msg) {
 			// REQUEST message received. Send reply.
-			System.out.printf("%s received REQUEST message.\n", getLocalName());
 			final ACLMessage reply = msg.createReply();
 			reply.setPerformative(ACLMessage.INFORM);
 			// TODO: send all relations possibly in many messages
@@ -381,7 +390,7 @@ public class DA extends Agent {
 					"%s received REFUSE message from %s with content: %s\n",
 					getLocalName(), msg.getSender().getLocalName(),
 					msg.getContent());
-			step = 0;
+			state = stateRequestLinks;
 		}
 
 		private void handleUnexpectedMsg(final ACLMessage msg) {
@@ -411,33 +420,32 @@ public class DA extends Agent {
 	/**
 	 * Method to perform DIPRE algorithm on web pages given in links
 	 */
-	protected void dipre(Links links, Relation relation) {
-		boolean deleted = relationsToSearch.remove(relation);
-		if (deleted == false) {
-			System.out
-					.println("INFO::Handled error connected with synchronization");
-			return;
-		}
+	protected void dipre(Links links) {
+		Relation relation = relationsToSearch.remove(0);
 		int numOfNewRelations = 0;
 		for (final String link : links) {
 			final String pattern = getPattern(link, relation);
+			if (pattern == null)
+				continue;
 			// TODO magic number:)
-			final Links innerLinks = getInnerLinks(link, 2);
-
+			final Links innerLinks = getInnerLinks(link, maxLinkLevel);
 			for (final String innerLink : innerLinks) {
-				final Relation newRelation = getNewRelation(innerLink, pattern);
-				if (newRelation != null) {
-					numOfNewRelations++;
-					relationsArchive.add(relation);
-					relationsToSearch.add(newRelation);
-					System.out.printf("%s got new relation: %s.\n",
-							getLocalName(), newRelation.toString());
-				}
+				final List<Relation> newRelations = getNewRelations(innerLink,
+						pattern);
+				if (newRelations.size() == 0)
+					continue;
+				numOfNewRelations += newRelations.size();
+				relationsToSearch.addAll(newRelations);
+				System.out.printf("%s got new relations: %s.\n",
+						getLocalName(), newRelations.toString());
+
 			}// for innerLink
 		}// for link
-		if (numOfNewRelations == 0) {// No new relations found in current links
+		if (numOfNewRelations == 0) // No new relations found in current links
 			relationsSecondChance.add(relation);
-		}
+		else
+			relationsArchive.add(relation);
+
 	}
 
 	/**
@@ -455,17 +463,68 @@ public class DA extends Agent {
 	}
 
 	protected String getPattern(String link, Relation relation) {
-		// TODO zaslepka metody
-		return relation.first + "’s first book " + relation.second;
-	}
 
-	protected Relation getNewRelation(String link, String pattern) {
-		// TODO zaslepka metody
-		if (fooTest) {
-			fooTest = false;
-			return new Relation("Tolkien", "LOTR");
+		final int minLength = 4;
+		final int maxLength = 150;
+
+		String pageContent = null;
+		try {
+			pageContent = Network.doHttpRequest(link, "GET");
+		} catch (IOException e) {
+
+			System.out
+					.printf("Warning:: During creation of pattern by %s can not do http request\n",
+							getLocalName());
+			System.out.printf("Processed link was %s\n", link);
+			return null;
+		}
+		int iFirst = pageContent.indexOf(relation.first, 0);
+		while (iFirst != -1) {
+			int iSecond = pageContent.indexOf(relation.second, iFirst);
+			while (iSecond != -1) {
+				if (iSecond - iFirst > maxLength) {
+					iSecond = pageContent.indexOf(relation.second, iSecond + 1);
+					continue;
+				}
+
+				String body = pageContent.substring(
+						iFirst + relation.first.length(), iSecond);
+				String prefix = pageContent.substring(iFirst - 5, iFirst);
+				prefix = prefix.replaceAll("[^A-Za-z0-9 ]", ".");
+				body = body.replaceAll("[^A-Za-z0-9 ]", ".");
+				String rule = new String(prefix + "([a-zA-Z0-9 ]{" + minLength
+						+ "," + maxLength + "})" + body + "([a-zA-Z0-9 ]{"
+						+ minLength + "," + maxLength + "})");
+				return rule;
+
+			}
+			iFirst = pageContent.indexOf(relation.first, iFirst + 1);
 		}
 		return null;
 	}
 
+	protected List<Relation> getNewRelations(String link, String pattern) {
+		List<Relation> result = new ArrayList<Relation>();
+		String pageContent = null;
+		try {
+			pageContent = Network.doHttpRequest(link, "GET");
+		} catch (IOException e) {
+			System.out
+					.printf("Warning:: During finding new relations by %s can not do http request\n",
+							getLocalName());
+			System.out.printf("Processed link was %s\n", link);
+			return result;
+		}
+
+		Matcher m = Pattern.compile(pattern).matcher(pageContent);
+		System.out.println(pattern);
+		// System.out.println(pageContent);
+		while (m.find()) {
+			String left = (String) m.group(1);
+			String right = (String) m.group(2);
+			Relation newRelation = new Relation(left.trim(), right.trim());
+			result.add(newRelation);
+		}
+		return result;
+	}
 }

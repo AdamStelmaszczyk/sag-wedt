@@ -8,13 +8,10 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import jade.lang.acl.UnreadableException;
 
 import java.io.IOException;
 
 import common.Links;
-import common.Relation;
-import common.SAResult;
 
 /**
  * Abstraction for Search Agent.
@@ -80,23 +77,13 @@ public abstract class SA extends Agent {
 			final ACLMessage msg = myAgent.receive(mt);
 			if (msg != null) {
 				// REQUEST message received. Process it
-				Relation query = null;
-				try {
-					query = (Relation) msg.getContentObject();
-				} catch (UnreadableException e1) {
-					System.out
-							.println("Warning::Error during deserialization of relation in SA");
-					return; // TODO Not sure if it should be return or just
-							// block()
-				}
+				final String query = msg.getContent();
 				System.out.printf("%s received REQUEST with content: %s\n",
-						getLocalName(), query.toString());
+						getLocalName(), query);
 				final ACLMessage reply = msg.createReply();
 				reply.setPerformative(ACLMessage.INFORM);
 				try {
-					Links links = getLinks(query.toString());
-					SAResult result = new SAResult(links, query);
-					reply.setContentObject(result);
+					reply.setContentObject(getLinks(query));
 				} catch (final IOException e) {
 					reply.setPerformative(ACLMessage.REFUSE);
 					reply.setContent(e.getMessage());
