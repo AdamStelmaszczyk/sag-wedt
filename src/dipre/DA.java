@@ -1,5 +1,6 @@
 package dipre;
 
+import java.lang.Math;
 import jade.content.ContentElement;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
@@ -44,9 +45,11 @@ import search.Network;
 public class DA extends Agent {
 
 	private static final long serialVersionUID = 1L;
-	private final int maxRelationsSearchedBeforeMove = 1; // Probably it will
+	private final int maxRelationsSearchedBeforeMove = 5; // Probably it will
 															// be program
 															// parameter
+	private final int maxLinksFromSA = 2;
+	private final int maxExploredInnerLinks = 200;
 	private final int maxLinkLevel = 2;
 	private boolean willBeMoved = false;
 	private final List<Relation> relationsToSearch = new ArrayList<Relation>();
@@ -207,7 +210,6 @@ public class DA extends Agent {
 
 		@Override
 		public void action() {
-			System.out.println("FindSearchAgentBehaviour");
 			// Search with the DF for the name of the SA
 			if (attempt == 3) {
 				if (tryToMoveAgent()) {
@@ -221,16 +223,13 @@ public class DA extends Agent {
 
 			switch (step) {
 			case 0:
-				System.out.println("dupa0");
 				final ServiceDescription sd = new ServiceDescription();
 				sd.setType(SA.AGENT_TYPE);
 				sd.setName(here().getName());
 				dfd.addServices(sd);
-				System.out.println("dupa0k");
 				++step;
 				break;
 			case 1:
-				System.out.println("dupa1");
 				try {
 					System.out.printf(
 							"%s is searching for SA on the yellow pages.\n",
@@ -340,11 +339,6 @@ public class DA extends Agent {
 		private void handleLinksPortion(final ACLMessage msg) {
 			// INFORM message received. Process it.
 			try {
-				if (!msg.getSender().getName().equals(searchAgent.getName())) {
-					// TODO to powinno byc docelowo niepotrzebne
-					System.out.println("INFO::Recived message from wrong SA");
-					return;
-				}
 				final Links links = (Links) msg.getContentObject();
 				// System.out.println(links);
 				dipre(links);
@@ -357,31 +351,6 @@ public class DA extends Agent {
 			} finally {
 				state = stateRequestLinks;
 			}
-		}
-
-		private void handleRelationsRequest(final ACLMessage msg) {
-			// REQUEST message received. Send reply.
-			final ACLMessage reply = msg.createReply();
-			reply.setPerformative(ACLMessage.INFORM);
-			// TODO: send all relations possibly in many messages
-			final StringBuilder sb = new StringBuilder();
-			sb.append("--Archive:\n");
-			for (final Relation r : relationsArchive) {
-				sb.append(r.toString());
-				sb.append("\n");
-			}
-			sb.append("--To be searched:\n");
-			for (final Relation r : relationsToSearch) {
-				sb.append(r.toString());
-				sb.append("\n");
-			}
-			sb.append("--Waiting for a second chance in another SA:\n");
-			for (final Relation r : relationsSecondChance) {
-				sb.append(r.toString());
-				sb.append("\n");
-			}
-			reply.setContent(sb.toString());
-			send(reply);
 		}
 
 		private void handleRefuseMsg(final ACLMessage msg) {
@@ -417,21 +386,59 @@ public class DA extends Agent {
 		}
 	}
 
+	private void handleRelationsRequest(final ACLMessage msg) {
+		// REQUEST message received. Send reply.
+		final ACLMessage reply = msg.createReply();
+		reply.setPerformative(ACLMessage.INFORM);
+		final StringBuilder sb = new StringBuilder();
+		sb.append("--Archive:\n");
+		for (final Relation r : relationsArchive) {
+			sb.append(r.toString());
+			sb.append("\n");
+		}
+		sb.append("--To be searched:\n");
+		for (final Relation r : relationsToSearch) {
+			sb.append(r.toString());
+			sb.append("\n");
+		}
+		sb.append("--Waiting for a second chance in another SA:\n");
+		for (final Relation r : relationsSecondChance) {
+			sb.append(r.toString());
+			sb.append("\n");
+		}
+		reply.setContent(sb.toString());
+		send(reply);
+	}
+
+	protected void handleViewerQuestion() {
+
+		final MessageTemplate mt = MessageTemplate
+				.MatchPerformative(ACLMessage.REQUEST);
+		final ACLMessage request = receive(mt);
+		if (request != null)
+			handleRelationsRequest(request);
+
+	}
+
 	/**
 	 * Method to perform DIPRE algorithm on web pages given in links
 	 */
 	protected void dipre(Links links) {
+		System.out.printf("Agent %s started DIPRE algorithm\n", getLocalName());
 		Relation relation = relationsToSearch.remove(0);
 		int numOfNewRelations = 0;
+		int linksSearched = 0;
 		for (final String link : links) {
-			final String pattern = getPattern(link, relation);
-			if (pattern == null)
+			final List<String> patterns = getPatterns(link, relation);
+			if (patterns.size() == 0)
 				continue;
-			// TODO magic number:)
+			System.out.printf("Agent %s found %d patterns for site %s",
+					getLocalName(), patterns.size(), link);
 			final Links innerLinks = getInnerLinks(link, maxLinkLevel);
 			for (final String innerLink : innerLinks) {
+				handleViewerQuestion();
 				final List<Relation> newRelations = getNewRelations(innerLink,
-						pattern);
+						patterns, relation);
 				if (newRelations.size() == 0)
 					continue;
 				numOfNewRelations += newRelations.size();
@@ -440,11 +447,15 @@ public class DA extends Agent {
 						getLocalName(), newRelations.toString());
 
 			}// for innerLink
+			if (linksSearched++ >= maxLinksFromSA)
+				break;
 		}// for link
 		if (numOfNewRelations == 0) // No new relations found in current links
 			relationsSecondChance.add(relation);
 		else
 			relationsArchive.add(relation);
+
+		System.out.printf("Agent %s ended DIPRE algorithm\n", getLocalName());
 
 	}
 
@@ -456,17 +467,82 @@ public class DA extends Agent {
 	 * @return Links to pages from the same domain found by DFS with max level
 	 */
 	protected Links getInnerLinks(String link, int deepthLevel) {
-		// TODO zaslepka metody
-		final Links links = new Links();
-		links.add(link);
-		return links;
+		System.out.printf("Agent %s wyszukuje linki wewnetrzne dla %s \n",
+				getLocalName(), link);
+		final Links result = new Links();
+		Links bfsLinks = new Links();
+		bfsLinks.add(link);
+		int exploredLinks = 0;
+		for (int i = 0; i < maxLinkLevel; i++) {
+			Links portion = findInnerLinks(bfsLinks, exploredLinks);
+			result.add(portion);
+			bfsLinks = portion;
+			exploredLinks += portion.size();
+		}
+		// System.out.println("LINK root:" + extractLinkRoot(link) + " Link:"
+		// + link);
+		// System.out.println(result.toString().replace(',', '\n'));
+		return result;
 	}
 
-	protected String getPattern(String link, Relation relation) {
+	protected Links findInnerLinks(Links links, int exploredLinksSize) {
+		Links result = new Links();
+		int newExploredLinksSize = 0;
+		for (String link : links) {
+			String pageContent = null;
+			try {
+				pageContent = Network.doHttpRequest(link, "GET");
+			} catch (IOException e) {
 
+				System.out
+						.printf("Warning:: During finding new links by %s can not do http request\n",
+								getLocalName());
+				System.out.printf("Processed link was %s\n", link);
+				continue;
+			}
+
+			String pattern = "(https?)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
+			String root = extractLinkRoot(link);
+			Matcher m = Pattern.compile(pattern).matcher(pageContent);
+			while (m.find()) {
+				String newLink = (String) m.group(0);
+				if (!newLink.contains(root))
+					continue;
+				if (newLink.endsWith("gif") || newLink.endsWith("css")
+						|| newLink.endsWith("jpg") || newLink.endsWith("pdf")
+						|| newLink.endsWith("png"))
+					continue;
+				result.add(newLink);
+				newExploredLinksSize++;
+				if (newExploredLinksSize + exploredLinksSize >= maxExploredInnerLinks)
+					break;
+			}
+			if (newExploredLinksSize + exploredLinksSize >= maxExploredInnerLinks)
+				break;
+		}
+		return result;
+	}
+
+	protected String extractLinkRoot(String link) {
+		int offset = 0;
+		if (link.startsWith("https://"))
+			offset = "https://".length();
+		else if (link.startsWith("http://"))
+			offset = "http://".length();
+
+		int firstSlashIndex = link.indexOf('/', offset);
+		if (firstSlashIndex == -1)
+			firstSlashIndex = link.length();
+		return link.substring(offset, firstSlashIndex);
+
+	}
+
+	protected List<String> getPatterns(String link, Relation relation) {
+		System.out.printf("Agent %s wyszukuje wzorce dla %s", getLocalName(),
+				link);
 		final int minLength = 4;
 		final int maxLength = 150;
-
+		List<String> result = new ArrayList<String>();
 		String pageContent = null;
 		try {
 			pageContent = Network.doHttpRequest(link, "GET");
@@ -476,34 +552,46 @@ public class DA extends Agent {
 					.printf("Warning:: During creation of pattern by %s can not do http request\n",
 							getLocalName());
 			System.out.printf("Processed link was %s\n", link);
-			return null;
+			return result;
 		}
-		int iFirst = pageContent.indexOf(relation.first, 0);
-		while (iFirst != -1) {
-			int iSecond = pageContent.indexOf(relation.second, iFirst);
-			while (iSecond != -1) {
-				if (iSecond - iFirst > maxLength) {
-					iSecond = pageContent.indexOf(relation.second, iSecond + 1);
+		int i = pageContent.indexOf(relation.first, 0);
+		while (i != -1) {
+			int j = pageContent.indexOf(relation.second, 0);
+			while (j != -1) {
+				if (Math.abs(i - j) > maxLength) {
+					j = pageContent.indexOf(relation.second, j + 1);
 					continue;
 				}
-
+				int iFirst = Math.min(i, j);
+				int iSecond = Math.max(i, j);
+				System.out.printf("%d na %d \n", iFirst, iSecond);
 				String body = pageContent.substring(
 						iFirst + relation.first.length(), iSecond);
-				String prefix = pageContent.substring(iFirst - 5, iFirst);
-				prefix = prefix.replaceAll("[^A-Za-z0-9 ]", ".");
-				body = body.replaceAll("[^A-Za-z0-9 ]", ".");
+				String prefix = pageContent.substring(iFirst - 25, iFirst);
+				prefix = prefix.replaceAll("[^A-Za-z0-9<>'\" ]", ".");
+				String suffix = pageContent.substring(
+						iSecond + relation.second.length(), iSecond + 25);
+				suffix = suffix.replaceAll("[^A-Za-z0-9<>'\" ]", ".");
+				body = body.replaceAll("[^A-Za-z0-9<>'\" ]", ".");
+				for (String word : relation.toString().split(" ")) {
+					body = body.replaceAll(word, "[A-Za-z0-9]{1,25}");
+					suffix = suffix.replaceAll(word, "[A-Za-z0-9]{1,25}");
+					prefix = prefix.replaceAll(word, "[A-Za-z0-9]{1,25}");
+				}
 				String rule = new String(prefix + "([a-zA-Z0-9 ]{" + minLength
 						+ "," + maxLength + "})" + body + "([a-zA-Z0-9 ]{"
-						+ minLength + "," + maxLength + "})");
-				return rule;
+						+ minLength + "," + maxLength + "})" + suffix);
+				result.add(rule);
+				j = pageContent.indexOf(relation.second, j + 1);
 
 			}
-			iFirst = pageContent.indexOf(relation.first, iFirst + 1);
+			i = pageContent.indexOf(relation.first, i + 1);
 		}
-		return null;
+		return result;
 	}
 
-	protected List<Relation> getNewRelations(String link, String pattern) {
+	protected List<Relation> getNewRelations(String link,
+			List<String> patterns, Relation oldRelation) {
 		List<Relation> result = new ArrayList<Relation>();
 		String pageContent = null;
 		try {
@@ -515,15 +603,17 @@ public class DA extends Agent {
 			System.out.printf("Processed link was %s\n", link);
 			return result;
 		}
-
-		Matcher m = Pattern.compile(pattern).matcher(pageContent);
-		System.out.println(pattern);
-		// System.out.println(pageContent);
-		while (m.find()) {
-			String left = (String) m.group(1);
-			String right = (String) m.group(2);
-			Relation newRelation = new Relation(left.trim(), right.trim());
-			result.add(newRelation);
+		for (String pattern : patterns) {
+			Matcher m = Pattern.compile(pattern).matcher(pageContent);
+			// System.out.println(pattern);
+			// System.out.println(pageContent);
+			while (m.find()) {
+				String left = (String) m.group(1);
+				String right = (String) m.group(2);
+				Relation newRelation = new Relation(left.trim(), right.trim());
+				if (!newRelation.equals(oldRelation))
+					result.add(newRelation);
+			}
 		}
 		return result;
 	}
