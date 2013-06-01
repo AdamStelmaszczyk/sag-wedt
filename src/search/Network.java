@@ -12,8 +12,11 @@ public class Network {
 			String auth) throws IOException {
 		final StringBuilder result = new StringBuilder();
 		final URL url = new URL(urlToRead);
+
 		final HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		conn.setRequestMethod(requestMethod);
+		System.setProperty("http.keepAlive", "false");
+		conn.setRequestProperty("Connection", "close");
 		if (auth != null) {
 			conn.setRequestProperty("Authorization", "Basic " + auth);
 		}

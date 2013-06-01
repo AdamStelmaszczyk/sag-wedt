@@ -45,7 +45,7 @@ import search.Network;
 public class DA extends Agent {
 
 	private static final long serialVersionUID = 1L;
-	private final int maxRelationsSearchedBeforeMove = 5; // Probably it will
+	private final int maxRelationsSearchedBeforeMove = 2; // Probably it will
 															// be program
 															// parameter
 	private final int maxLinksFromSA = 2;
@@ -120,8 +120,7 @@ public class DA extends Agent {
 	protected void afterMove() {
 		System.out.printf("%s has moved itself to %s.\n", getLocalName(),
 				here().getName());
-		// System.out.println("Relacje do wyszukiwania");
-		System.out.println("afterMove");
+		// System.out.println("Relacje do wyszukiwania");c
 		// Initialize agent
 		relationsSearchedAfertMove = 0;
 		getContentManager().registerLanguage(codec);
@@ -564,13 +563,24 @@ public class DA extends Agent {
 				}
 				int iFirst = Math.min(i, j);
 				int iSecond = Math.max(i, j);
-				System.out.printf("%d na %d \n", iFirst, iSecond);
+				String relationFirst = null;
+				String relationSecond = null;
+				if (i < j) {
+					relationFirst = relation.first;
+					relationSecond = relation.second;
+				} else {
+					relationFirst = relation.second;
+					relationSecond = relation.first;
+				}
 				String body = pageContent.substring(
-						iFirst + relation.first.length(), iSecond);
-				String prefix = pageContent.substring(iFirst - 25, iFirst);
+						iFirst + relationFirst.length(), iSecond);
+				int prefixBeginIndex = Math.max(iFirst - 25, 0);
+				String prefix = pageContent.substring(prefixBeginIndex, iFirst);
 				prefix = prefix.replaceAll("[^A-Za-z0-9<>'\" ]", ".");
+				int suffixEndIndex = Math.min(iSecond + 25,
+						pageContent.length());
 				String suffix = pageContent.substring(
-						iSecond + relation.second.length(), iSecond + 25);
+						iSecond + relationSecond.length(), suffixEndIndex);
 				suffix = suffix.replaceAll("[^A-Za-z0-9<>'\" ]", ".");
 				body = body.replaceAll("[^A-Za-z0-9<>'\" ]", ".");
 				for (String word : relation.toString().split(" ")) {
@@ -608,13 +618,23 @@ public class DA extends Agent {
 			// System.out.println(pattern);
 			// System.out.println(pageContent);
 			while (m.find()) {
+				System.out.print('.');
 				String left = (String) m.group(1);
 				String right = (String) m.group(2);
 				Relation newRelation = new Relation(left.trim(), right.trim());
-				if (!newRelation.equals(oldRelation))
+				if (!newRelation.equals(oldRelation)
+						&& !listContainsRelation(relationsToSearch, newRelation))
 					result.add(newRelation);
 			}
 		}
 		return result;
+	}
+
+	public static boolean listContainsRelation(List<Relation> l, Relation r) {
+		for (Relation i : l) {
+			if (i.equals(r))
+				return true;
+		}
+		return false;
 	}
 }
