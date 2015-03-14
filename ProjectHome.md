@@ -1,0 +1,1 @@
+DIPRE (Dual Iterative Pattern Relation Expansion) algorithm implementation in Jade (Java Agent DEvelopment Framework).
